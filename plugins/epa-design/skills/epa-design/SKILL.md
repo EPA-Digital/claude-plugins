@@ -20,8 +20,8 @@ Sistema de diseño oficial de EPA Digital. Cubre dos superficies que NO se mezcl
 PRODUCT SURFACE          DECK / BRAND SURFACE
 ─────────────────        ─────────────────────
 Dashboards internos      Presentaciones a cliente
-AuditOS, Kalman          QBRs, case studies
-Apps de vibecoding       Landing de marca
+Apps internas y de       QBRs, case studies
+vibecoding               Landing de marca
 13px body por default    96px hero por default
 Densidad alta            Espaciado dramático
 Sin acentos magenta      Acentos magenta/cyan permitidos

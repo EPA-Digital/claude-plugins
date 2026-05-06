@@ -259,7 +259,7 @@ SEGURIDAD
 ### Error: "Permission denied" en el deploy
 ```
 Causa:  La service account no tiene el role roles/run.admin
-Fix:    Agregar el permiso desde GCP IAM o pedirle a Lalo
+Fix:    Agregar el permiso desde GCP IAM, o pedirle al área de Datos e IA
 ```
 
 ### Error: "Image not found" en Cloud Run
@@ -280,7 +280,7 @@ Fix:    1. Verificar que el Dockerfile tiene EXPOSE 8080
 ### Error: "Quota exceeded"
 ```
 Causa:  Se alcanzó el límite de instancias o CPU en epa-turing
-Fix:    Notificar a Lalo — puede ser necesario ajustar quotas o costos
+Fix:    Notificar al área de Datos e IA — puede ser necesario ajustar quotas o costos
 ```
 
 ### Ver logs en tiempo real
@@ -310,7 +310,7 @@ Total típico por servicio:  $5–20 USD/mes
 Si ves costos inesperadamente altos, revisar:
 1. Si `--min-instances` está en 1 o más (cobra aunque no haya tráfico)
 2. Si hay queries a BigQuery sin límite de bytes
-3. Notificar a Lalo si el costo supera $50 USD/mes por servicio
+3. Notificar al área de Datos e IA si el costo supera $50 USD/mes por servicio
 
 ---
 

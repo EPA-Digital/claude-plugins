@@ -12,7 +12,7 @@ Solo necesitas invocarlo en tu prompt:
 
 ```
 "Obtén las campañas activas de Meta para el cliente Coppel del último mes"
-"Dame el gasto por campaña de Google Ads de MacStore esta semana"
+"Dame el gasto por campaña de Google Ads de Innovasport esta semana"
 "Trae las métricas de conversión de TikTok para el cliente X"
 ```
 

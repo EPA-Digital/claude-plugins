@@ -26,8 +26,10 @@ este documento.
 
 Hacer estas tres preguntas, en orden:
 
-1. **¿Quién es el dueño funcional?** ¿Es un producto interno (Pitágoras, Kalman,
-   AuditOS) o trabajo de un cliente (Coppel, MacStore, Walmart)?
+1. **¿Quién es el dueño funcional?** ¿Es un producto interno (Pitágoras es el
+   único en producción al día de hoy) o trabajo de un cliente activo (Coppel,
+   Chedraui, Innovasport, Nestlé, ABInBev, AMVO, Farmacias del Ahorro, UVM,
+   entre otros)?
 2. **¿Qué tipo de recurso es?** Cada tipo tiene su patrón — no se mezclan.
 3. **¿El nombre transmite el propósito?** Si dentro de 6 meses alguien lee solo
    el nombre, ¿entiende qué guarda o qué hace?
@@ -49,10 +51,10 @@ Si la respuesta a (3) es no, reescribir antes de crear.
 ```
 PitagorasUsers              ← usuarios de Pitágoras (PROTEGIDO)
 PitagorasTokens             ← tokens de sesión (PROTEGIDO)
-KalmanReports               ← reportes generados por Kalman
-AuditOSAudits               ← auditorías de AuditOS
 CoppelCampaigns             ← campañas del cliente Coppel
-MacStoreOrders              ← órdenes del cliente MacStore
+ChedrauiOrders              ← órdenes del cliente Chedraui
+InnovasportAudiences        ← audiencias del cliente Innovasport
+NestleCreatives             ← assets creativos del cliente Nestlé
 EpaSettings                 ← configuración global
 ```
 
@@ -87,12 +89,18 @@ CoppelCampaigns/{campaignId}/Audiences
 ```
 coppel_performance          ← métricas de performance de Coppel
 coppel_raw                  ← datos crudos de Coppel desde Pitágoras
-macstore_attribution        ← atribución de MacStore
-walmart_audiences           ← audiencias de Walmart
+chedraui_attribution        ← atribución de Chedraui
+innovasport_audiences       ← audiencias de Innovasport
+nestle_performance          ← métricas de performance de Nestlé
+abinbev_raw                 ← datos crudos de ABInBev
+farmacias_ahorro_raw        ← datos crudos de Farmacias del Ahorro
 pitagoras_logs              ← logs operativos de Pitágoras
-kalman_outputs              ← outputs procesados de Kalman
 epa_internal                ← datos internos de la agencia
 ```
+
+**Nota sobre nombres compuestos:** clientes con dos palabras como "Farmacias del
+Ahorro" se normalizan a `farmacias_ahorro` (sin artículos, snake_case). Validar
+con el área de Datos al onboardear cliente nuevo.
 
 **Ejemplos incorrectos:**
 ```
@@ -152,10 +160,10 @@ CLUSTER BY campaign_id;
 **Ejemplos correctos:**
 ```
 pitagoras-api               ← API de Pitágoras
-kalman-web                  ← frontend de Kalman
-auditos-api                 ← API de AuditOS
+pitagoras-web               ← frontend de Pitágoras
 coppel-attribution-svc      ← servicio de atribución para Coppel
-macstore-etl-job            ← job de ETL para MacStore
+chedraui-etl-job            ← job de ETL para Chedraui
+innovasport-dashboard-web   ← dashboard del cliente Innovasport
 github-actions-deployer     ← service account, no servicio (ver IAM)
 ```
 
@@ -288,9 +296,8 @@ se redefinen en `EPA_*`. Solo prefijar las propias del servicio.
 **Ejemplos correctos:**
 ```
 pitagoras                   ← producto Pitágoras
-kalman                      ← producto Kalman
-auditos                     ← producto AuditOS
 coppel-attribution          ← repo del servicio para Coppel
+chedraui-dashboard          ← repo del dashboard de Chedraui
 claude-plugins              ← este repo
 plugin-template             ← plantilla de plugins de Claude
 ```

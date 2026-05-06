@@ -3,7 +3,7 @@ version: alpha
 name: EPA Digital Design System
 description: >
   Design system for EPA Digital — a performance-marketing agency (~170 people, LATAM HQ).
-  Spans two surfaces: the dense product UI (AuditOS, internal analytics tools, vibecoding apps)
+  Spans two surfaces: the dense product UI (Pitágoras, client dashboards, internal analytics tools, vibecoding apps)
   and the brand/deck surface (executive client presentations, QBRs, case studies).
   All user-facing copy defaults to Spanish (LATAM professional register, informal second-person).
 
@@ -405,9 +405,9 @@ components:
 
 ## Overview
 
-EPA Digital es una agencia de performance marketing de ~170 personas con sede en LATAM (México), trabajando con marcas como Coppel, Nestlé y ABInBev. El design system cubre dos superficies completamente distintas que deben sentirse como una sola marca cohesiva.
+EPA Digital es una agencia de performance marketing de ~170 personas con sede en LATAM (México), trabajando con marcas como Coppel, Chedraui, Innovasport, Nestlé y ABInBev, entre otras. El design system cubre dos superficies completamente distintas que deben sentirse como una sola marca cohesiva.
 
-**Superficie product — AuditOS y herramientas internas:** Densa, orientada a datos, analítica. Dashboards de Signal Intelligence para diagnóstico de Meta Pixel y CAPI, módulo de Performance Audit, análisis de Funnel. Siente como un terminal Bloomberg con contención y craft — texto de 13px por defecto, bordes hairline de 0.5px, fondo blanco, pequeños acentos azules. La densidad de información es una característica, no un problema.
+**Superficie product — Pitágoras, dashboards de cliente y herramientas internas:** Densa, orientada a datos, analítica. Diagnósticos de Meta Pixel y CAPI, módulos de performance audit, análisis de funnel, dashboards en Next.js + Tailwind. Siente como un terminal Bloomberg con contención y craft — texto de 13px por defecto, bordes hairline de 0.5px, fondo blanco, pequeños acentos azules. La densidad de información es una característica, no un problema.
 
 **Superficie deck — presentaciones para clientes y QBRs:** Expansiva, segura, de alto impacto. Headlines IBM Plex Sans Bold de 70–96px. Fondos aurora con gradiente profundo (navy → electric blue → violet/cyan). Tipo blanco sobre campos oscuros saturados. Eyebrows en cyan eléctrico. El deck es el espejo inverso del producto: oscuro donde el producto es blanco, grande donde el producto es compacto.
 
@@ -515,7 +515,7 @@ Una sola familia: **IBM Plex Sans**, hospedada como variable font (eje de peso 1
 
 ## Layout
 
-### Product (AuditOS y apps internas)
+### Product (Pitágoras, dashboards de cliente y apps internas)
 
 Tres columnas estructurales fijas, de izquierda a derecha:
 

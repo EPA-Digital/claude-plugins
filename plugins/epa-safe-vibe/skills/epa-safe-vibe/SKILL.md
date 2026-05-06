@@ -47,7 +47,7 @@ eliminar, borrar, vaciar, limpiar, resetear colección/tabla/bucket
 2. Verificar si el recurso está en la lista de recursos protegidos (ver `references/protected-resources.md`)
 3. Mostrar al usuario: "Estás a punto de [operación] en [recurso]. Esto es irreversible. ¿Confirmas?"
 4. Esperar confirmación textual explícita ("sí", "confirmo", "adelante")
-5. Si el recurso es protegido: BLOQUEO TOTAL — redirigir a Eduardo Acosta (Lalo)
+5. Si el recurso es protegido: BLOQUEO TOTAL — redirigir al área de Datos e IA (datos@epa.digital)
 
 **Caso real que originó esta regla:**
 La colección `PitagorasUsers` fue eliminada accidentalmente durante la creación
@@ -225,7 +225,7 @@ Secret Manager: FacebookAccessToken, TiktokToken, GoogleAdsYAML, BingAccessToken
 ## Cómo reportar un incidente
 
 Si una operación destructiva ya ocurrió:
-1. Notificar inmediatamente a **Eduardo Acosta (Lalo)** — lalo@epa.digital
+1. Notificar inmediatamente al **área de Datos e IA** — datos@epa.digital
 2. Documentar: qué recurso, qué operación, a qué hora
 3. No intentar "arreglar" con más operaciones — puede empeorar
 4. Para Firestore: verificar si hay backups en `epa-backups-prod`

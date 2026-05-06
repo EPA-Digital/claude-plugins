@@ -1,7 +1,7 @@
 # Recursos Protegidos — epa-turing
 
 Estos recursos NO deben modificarse, eliminarse, ni sobreescribirse
-sin autorización explícita de Eduardo Acosta (Lalo).
+sin autorización explícita del **área de Datos e IA** (`datos@epa.digital`).
 
 Cualquier intento de operación destructiva sobre estos recursos
 activa BLOQUEO TOTAL en epa-safe-vibe.
@@ -46,14 +46,16 @@ projects/689827400521/secrets/{NombreSecret}/versions/latest
 
 ## Colecciones de uso compartido (precaución, no bloqueo total)
 
-Estas colecciones las usan múltiples productos o equipos.
+Estas colecciones las consumen múltiples servicios o equipos.
 Antes de modificarlas, verificar con el equipo responsable.
 
 | Colección | Responsable | Nota |
 |---|---|---|
-| `KalmanReports` | Área de Datos | Reportes generados — no eliminar sin confirmar con cliente |
-| `AuditOSAudits` | Área de Datos | Historial de auditorías — no modificar registros pasados |
-| `EpaSettings` | Infraestructura | Configuración global — cualquier cambio afecta toda la plataforma |
+| `EpaSettings` | Área de Datos e IA | Configuración global — cualquier cambio afecta toda la plataforma |
+
+> Cuando se onboarde un producto interno nuevo (todavía en exploración) y empiece
+> a almacenar datos compartidos, **agregar su colección a esta tabla** antes de
+> exponerla a otros equipos.
 
 ---
 
@@ -61,14 +63,14 @@ Antes de modificarlas, verificar con el equipo responsable.
 
 ### Firestore
 1. Verificar si existe backup en `gs://epa-backups-prod/firestore/`
-2. Contactar a Lalo (lalo@epa.digital) inmediatamente
+2. Contactar al área de Datos e IA (datos@epa.digital) inmediatamente
 3. Si hay backup reciente: restaurar con `gcloud firestore import`
 4. Si no hay backup: escalar a soporte de GCP (datos pueden recuperarse
    hasta 7 días después con soporte Enterprise)
 
 ### Secret Manager
 Los secrets eliminados tienen un periodo de retención de 24h.
-Contactar a Lalo para restaurar desde el historial de versiones.
+Contactar al área de Datos e IA para restaurar desde el historial de versiones.
 
 ---
 
@@ -76,7 +78,7 @@ Contactar a Lalo para restaurar desde el historial de versiones.
 
 | Situación | Contactar a |
 |---|---|
-| Pérdida de datos en Firestore | Eduardo Acosta (Lalo) — lalo@epa.digital |
-| Secret comprometido o eliminado | Eduardo Acosta (Lalo) + cambiar credencial en plataforma |
-| Gasto inesperado en GCP | Eduardo Acosta (Lalo) |
-| Servicio de Cloud Run caído | Equipo de Desarrollo (Eddy) |
+| Pérdida de datos en Firestore | Área de Datos e IA — datos@epa.digital |
+| Secret comprometido o eliminado | Área de Datos e IA + rotar credencial en la plataforma upstream |
+| Gasto inesperado en GCP | Área de Datos e IA |
+| Servicio de Cloud Run caído | Equipo de Desarrollo |

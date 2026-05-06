@@ -10,10 +10,13 @@ código o assets de EPA Digital.
 **EPA Digital** es una agencia de marketing de performance con HQ en LATAM
 (~170 personas). Trabajo se divide en dos grandes superficies:
 
-1. **Productos internos** — Pitágoras (capa de integración a APIs de medios),
-   Kalman (reportes), AuditOS (auditorías), y herramientas de vibecoding.
-2. **Operación de cliente** — campañas, dashboards, atribución, alertas para
-   clientes como Coppel, MacStore, Walmart.
+1. **Productos internos** — Pitágoras (capa de integración centralizada a APIs
+   de medios pagados). Único producto en producción. Otros productos están en
+   desarrollo o exploración y no deben asumirse como existentes.
+2. **Operación de cliente** — campañas, dashboards, atribución y alertas para
+   los clientes activos de la agencia. Cartera actual incluye (entre otros):
+   ABInBev, AMVO, Coppel, Chedraui, Farmacias del Ahorro, Innovasport, Nestlé
+   y UVM.
 
 Todo lo que no sea local del laptop del desarrollador vive en GCP, en un solo
 proyecto compartido.
@@ -45,7 +48,7 @@ Archivos:        GCS (buckets epa-{proposito}-prod)
 Secretos:        Secret Manager (secrets en PascalCase)
 Mensajería:      Pub/Sub
 Automatización visual: n8n (epa-digital.app.n8n.cloud)
-Frontends:       Next.js 15 en Cloud Run
+Dashboards:      Next.js 15 + Tailwind CSS en Cloud Run (stack preferido)
 APIs Python:     FastAPI + uvicorn
 APIs TypeScript: Hono o Next.js API routes
 Lenguajes:       Python 3.11+, TypeScript con Node 20+
@@ -73,7 +76,8 @@ Cómo usarlo: ver `pitagoras.md` en `epa-stack/references/`.
 
 ## Recursos protegidos — bloqueo total
 
-NO modificar, eliminar, ni sobreescribir sin autorización de Eduardo Acosta (Lalo):
+NO modificar, eliminar ni sobreescribir sin autorización del **área de Datos e IA**
+(`datos@epa.digital`):
 
 ```
 Firestore:
@@ -141,9 +145,10 @@ O dejar que `extraKnownMarketplaces` y `enabledPlugins` en
 ## Contactos
 
 ```
-Infraestructura, recursos protegidos, gasto GCP:   Eduardo Acosta (Lalo) — lalo@epa.digital
-Productos y desarrollo:                             Equipo de Desarrollo (Eddy)
-Datos y modelado de BigQuery / Firestore:           Área de Datos — datos@epa.digital
+Infraestructura, recursos protegidos, gasto GCP:   Área de Datos e IA — datos@epa.digital
+Productos y desarrollo:                             Equipo de Desarrollo
+Datos y modelado de BigQuery / Firestore:           Área de Datos e IA — datos@epa.digital
+Diseño y design system:                             Área de Diseño
 ```
 
 ---

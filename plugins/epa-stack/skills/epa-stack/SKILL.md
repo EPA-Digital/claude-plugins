@@ -53,13 +53,11 @@ y seguir el árbol de decisión correspondiente.
 │       └── Nombre: {producto}-api o {cliente}-{funcion}-svc
 │
 ├── 4. NECESITO UN DASHBOARD O INTERFAZ
-│   ├── ¿Dashboard interno de datos?
-│   │   └── → Next.js en Cloud Run
-│   │       Con epa-design para branding correcto
-│   │
-│   └── ¿Reporte estático para cliente?
-│       └── → Kalman (plataforma existente de reportes EPA)
-│           Hablar con el área de Datos antes de crear uno nuevo
+│   └── → Next.js 15 + Tailwind CSS en Cloud Run
+│       Stack PREFERIDO de la agencia para cualquier UI nueva.
+│       Con epa-design para tokens, componentes y copy correcto.
+│       Hablar con el área de Datos antes de crear uno nuevo
+│       — puede haber un esfuerzo en curso o un patrón a seguir.
 │
 ├── 5. NECESITO AUTOMATIZAR UN PROCESO
 │   ├── ¿Se ejecuta en horario fijo (diario, semanal)?
@@ -107,14 +105,18 @@ Linting:        ruff
 Type hints:     siempre — no código sin tipado
 ```
 
-### TypeScript — para APIs, frontends, y herramientas CLI
+### TypeScript — para APIs, dashboards y herramientas CLI
 ```
 Runtime:        Node.js 20+ o Bun
-Web framework:  Hono (APIs ligeras) o Next.js 15 (apps con UI)
+Dashboards UI:  Next.js 15 + Tailwind CSS  ← stack PREFERIDO para toda UI nueva
+APIs ligeras:   Hono
 HTTP client:    fetch nativo o ky
 GCP SDK:        @google-cloud/* (bigquery, firestore)
 ORM/DB:         Prisma (si se usa PostgreSQL) o SDK nativo de Firestore
 Linting:        biome o eslint + prettier
+Styling:        Tailwind CSS con tokens de epa-design (NO CSS-in-JS, NO MUI)
+Componentes:    HTML semántico + componentes copy-paste de epa-design/components.md
+                shadcn/ui aceptado si se reestiliza con tokens EPA
 ```
 
 ### Cuándo usar cada uno

@@ -207,7 +207,7 @@ pedir en lenguaje natural:
 
 ```
 "Trae las campañas activas de Meta del cliente Coppel del último mes"
-"Compárame el ROAS de Google Ads vs Meta para MacStore en Q1"
+"Compárame el ROAS de Google Ads vs Meta para Innovasport en Q1"
 ```
 
 El MCP se encarga de auth, paginación y normalización. Para apps en runtime,

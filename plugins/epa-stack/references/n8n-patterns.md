@@ -31,7 +31,7 @@ Antes de construir un flujo en n8n, validar que es el lugar correcto:
 Ejemplos:
 [Coppel] Alerta gasto diario — Schedule 09:00
 [Pitágoras] Sync usuarios → HubSpot — Webhook
-[Kalman] Generar reporte semanal — Schedule lunes 07:00
+[Chedraui] Generar reporte semanal — Schedule lunes 07:00
 [Interno] Notificar deploys exitosos — Webhook GitHub
 ```
 
@@ -39,11 +39,15 @@ Ejemplos:
 Organizar por cliente o producto:
 ```
 /Coppel
-/MacStore
+/Chedraui
+/Innovasport
+/Nestlé
 /Pitágoras
-/Kalman
 /Interno
 ```
+
+Crear el folder al onboardear un cliente nuevo (consultar la lista vigente con
+el área de Datos e IA antes de inventar nombres).
 
 ### Node names
 Renombrar todos los nodes a algo descriptivo. NO dejar el default
