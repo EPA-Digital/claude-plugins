@@ -30,12 +30,12 @@ colors:
 
   # --- Product surfaces ---
   surface:          "#FFFFFF"   # Cards, panels
-  surface-secondary:"#FAFAFA"   # App canvas (barely-there tint)
+  surface-secondary: "#FAFAFA"  # App canvas (barely-there tint)
   surface-tertiary: "#F5F5F5"   # Input fields, row hover, skeleton loaders
 
   # --- Foreground ---
   content:          "#0A0A0A"   # Primary text
-  content-secondary:"#6B6B6B"   # Supporting text
+  content-secondary: "#6B6B6B"  # Supporting text
   content-tertiary: "#A3A3A3"   # Captions, metadata
   on-primary:       "#FFFFFF"   # Text on EPA blue surfaces
 
