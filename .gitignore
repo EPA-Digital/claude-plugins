@@ -1,0 +1,36 @@
+# Credentials — NEVER commit
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+service-account*.json
+*-credentials.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local Claude state
+.claude/cache/
+.claude/logs/
+
+# Node / TypeScript artifacts (in case examples evolve)
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Python artifacts
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS-level junk
+.fseventsd/

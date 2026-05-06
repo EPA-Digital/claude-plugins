@@ -1,0 +1,13 @@
+{
+  "name": "epa-safe-vibe",
+  "description": "Guardrail maestro de seguridad para vibecoding en epa-turing. Bloquea operaciones destructivas, credenciales hardcodeadas, acceso directo a APIs de medios y malas prácticas de arquitectura.",
+  "version": "1.0.0",
+  "author": {
+    "name": "EPA Digital — Datos e IA",
+    "email": "datos@epa.digital"
+  },
+  "homepage": "https://github.com/epa-digital/claude-plugins",
+  "repository": "https://github.com/epa-digital/claude-plugins",
+  "license": "MIT",
+  "keywords": ["security", "guardrails", "firestore", "gcp", "credentials", "epa-turing"]
+}
