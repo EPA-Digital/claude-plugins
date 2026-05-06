@@ -62,7 +62,32 @@ claude --version
 Si te muestra una versión (ej. `claude-code 1.x.x`), todo bien. Si dice
 `command not found`, regresa al paso 1 e instala Claude Code.
 
-### 4. Agrega el marketplace (paso que se hace una vez por máquina)
+### 4. Inicia sesión con tu cuenta EPA
+
+Claude Code requiere login antes del primer uso. Corre:
+
+```bash
+claude
+```
+
+Se abrirá una ventana del navegador para autenticarte.
+
+> ⚠️ **Usa tu cuenta `@epa.digital`** (ej. `tu.nombre@epa.digital`), **no
+> tu correo personal de Gmail/Hotmail/Yahoo**. Es importante por dos razones:
+>
+> 1. Los plugins, marketplaces internos y MCP servers de EPA (incluido el de
+>    Pitágoras) autentican contra tu identidad de Google Workspace de EPA.
+>    Con tu cuenta personal no vas a poder usarlos aunque los instales.
+> 2. Para auditoría: el uso queda asociado a tu identidad organizacional,
+>    no a una cuenta privada.
+>
+> Si te equivocaste y firmaste con la cuenta personal, corre `claude logout`
+> y luego `claude` de nuevo eligiendo la cuenta `@epa.digital`.
+
+Una vez logueado, sal de la sesión interactiva (`/quit` o `Ctrl+D`) y vuelve a
+la terminal para los siguientes pasos.
+
+### 5. Agrega el marketplace (paso que se hace una vez por máquina)
 
 ```bash
 claude plugin marketplace add EPA-Digital/claude-plugins
@@ -71,7 +96,7 @@ claude plugin marketplace add EPA-Digital/claude-plugins
 Esto le dice a tu Claude Code: "el catálogo oficial de EPA está en este repo
 de GitHub". A partir de aquí puedes instalar cualquiera de nuestros plugins.
 
-### 5. Instala los 5 plugins
+### 6. Instala los 5 plugins
 
 Pégalos uno por uno (o todos juntos en un mismo bloque — funciona igual):
 
@@ -85,7 +110,7 @@ claude plugin install epa-cicd@epa-plugins
 
 Cada uno tarda 2–5 segundos. Listo.
 
-### 6. Verifica que todo quedó instalado
+### 7. Verifica que todo quedó instalado
 
 ```bash
 claude plugin marketplace list

@@ -38,6 +38,48 @@ Si la respuesta a (3) es no, reescribir antes de crear.
 
 ---
 
+## Convención EPA — productos internos llevan nombre de científico
+
+Las **herramientas / productos internos de EPA** se nombran con apellidos de
+científicos. Es la marca interna que distingue lo que construye la agencia.
+
+Productos existentes que siguen el patrón:
+```
+Pitágoras    ← capa centralizada de medios (ÚNICO en producción hoy)
+Newton       ← producto interno
+Fermat       ← producto interno
+Einstein     ← producto interno
+```
+
+(Otros nombres de científico están reservados para productos en exploración o
+desarrollo. Si vas a crear uno nuevo, validar con el área de Datos e IA antes
+de fijar el nombre.)
+
+**Reglas:**
+- Sólo apellidos de **científicos reales** (matemáticos, físicos, astrónomos,
+  químicos, biólogos). Sin nombres de pila, sin personajes ficticios, sin
+  empresas, sin acrónimos.
+- En recursos de GCP / código se aplica la convención de cada tipo (ej.
+  Pitágoras → Firestore `Pitagoras*`, Cloud Run `pitagoras-api`,
+  BQ `pitagoras_logs`, Secret `PitagorasApiKey`, env `EPA_PITAGORAS_*`,
+  repo `pitagoras`). Mantener el ASCII sin acentos en identificadores
+  técnicos — los acentos sólo en docs y UI.
+- Esta convención **no aplica a herramientas de cliente** ni a recursos
+  específicos de cliente: ahí se usa el nombre del cliente como prefijo.
+
+```
+✓ Newton            ← producto interno
+✓ Fermat            ← producto interno
+✓ ChedrauiDashboard ← herramienta para Chedraui (NO lleva nombre de científico)
+✗ Tesla             ← reservar a científico (Nikola Tesla) sí, pero validar
+                      antes con Datos para evitar colisión con Tesla Inc.
+✗ AuditOS           ← no es nombre de científico — patrón rechazado
+✗ Reportes-Coppel   ← producto interno con nombre descriptivo + cliente,
+                      rompe ambas convenciones
+```
+
+---
+
 ## Firestore — Colecciones
 
 **Patrón:** `PascalCase` con prefijo de producto o cliente.
