@@ -6,41 +6,40 @@
     "email": "datos@epa.digital"
   },
   "metadata": {
-    "pluginRoot": "./plugins",
-    "version": "1.1.0"
+    "version": "1.1.1"
   },
   "plugins": [
     {
       "name": "epa-naming",
-      "source": "./epa-naming",
+      "source": "./plugins/epa-naming",
       "description": "Naming conventions oficiales para todos los recursos en epa-turing: Firestore, BigQuery, Cloud Run, GCS, Secret Manager, variables de entorno y GitHub.",
       "category": "governance",
       "keywords": ["naming", "gcp", "firestore", "bigquery", "conventions"]
     },
     {
       "name": "epa-safe-vibe",
-      "source": "./epa-safe-vibe",
+      "source": "./plugins/epa-safe-vibe",
       "description": "Guardrail maestro de seguridad para vibecoding en epa-turing. Bloquea operaciones destructivas, credenciales hardcodeadas, acceso directo a APIs de medios y malas prácticas de arquitectura.",
       "category": "security",
       "keywords": ["security", "guardrails", "firestore", "gcp", "credentials"]
     },
     {
       "name": "epa-stack",
-      "source": "./epa-stack",
+      "source": "./plugins/epa-stack",
       "description": "Stack canónico de EPA Digital: árbol de decisión de arquitectura, patrones aprobados por caso de uso y boilerplate para Cloud Run con Python (FastAPI) y TypeScript (Hono).",
       "category": "architecture",
       "keywords": ["stack", "architecture", "cloud-run", "fastapi", "hono", "bigquery"]
     },
     {
       "name": "epa-design",
-      "source": "./epa-design",
+      "source": "./plugins/epa-design",
       "description": "Design system EPA Digital: tokens, componentes, tipografía IBM Plex Sans, copy guidelines en español y patrones para superficies product y deck.",
       "category": "design",
       "keywords": ["design-system", "ui", "branding", "components", "css"]
     },
     {
       "name": "epa-cicd",
-      "source": "./epa-cicd",
+      "source": "./plugins/epa-cicd",
       "description": "CI/CD para proyectos EPA: GitHub Actions + Cloud Run en epa-turing. Templates listos, flujo de deploy automatizado y guía paso a paso para usuarios sin experiencia en DevOps.",
       "category": "devops",
       "keywords": ["cicd", "github-actions", "cloud-run", "deploy", "docker"]
