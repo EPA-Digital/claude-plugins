@@ -3,6 +3,8 @@
 Proyecto: `epa-turing` · Región default: `us-central1`. Este documento es para
 casos que pasan del template básico (CPU, memoria, autenticación, VPC, scaling).
 
+> **Nota:** Los comandos de esta guía requieren `gcloud` CLI. Si no lo tienes instalado, descárgalo desde [cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install) (instalador gráfico — `.pkg` en Mac, `.exe` en Windows). Si tienes dudas sobre alguna configuración, consultar al área de Datos e IA (`datos@epa.digital`).
+
 ---
 
 ## Recursos por tipo de servicio

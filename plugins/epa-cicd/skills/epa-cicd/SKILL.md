@@ -42,9 +42,23 @@ Después del setup inicial, desplegar es solo hacer `git push`.
 
 ## Prerequisitos — hacer una sola vez
 
+### 0. ¿Tienes gcloud CLI instalado?
+
+Los siguientes pasos tienen **tres rutas**. Elige la que mejor se adapte:
+
+| | Quién | Qué necesitas |
+|---|---|---|
+| **Opción A — Consola GCP** | Cualquier persona con acceso al proyecto epa-turing en el navegador | Solo una cuenta GCP |
+| **Opción B — gcloud CLI** | Usuarios técnicos que prefieren terminal | Instalar gcloud (descarga en [cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install) — `.pkg` para Mac, `.exe` para Windows, sin terminal) |
+| **Opción C — Datos e IA lo hace por ti** | Usuarios sin acceso a GCP o sin tiempo para el setup | Nada — solo envía un correo |
+
+> **Opción C (más rápida):** Escribe a `datos@epa.digital` con el asunto "Setup CI/CD para [nombre-de-tu-repo]". El área de Datos e IA crea la service account, la registra en Artifact Registry y te manda el valor del `GCP_SA_KEY`. Tú solo agregas ese secret en tu repo de GitHub y pones el workflow. Pasa al paso del workflow directamente.
+
+---
+
 ### 1. Configurar autenticación de GitHub → GCP
 
-En la consola de GCP (epa-turing), crear una Service Account para GitHub Actions:
+**Opción B (gcloud):** crear la Service Account desde terminal:
 
 ```bash
 # Nombre sugerido según epa-naming:
@@ -68,8 +82,15 @@ gcloud projects add-iam-policy-binding epa-turing \
   --role="roles/iam.serviceAccountUser"
 ```
 
+> **Opción A (Consola GCP):**
+> 1. Ve a [console.cloud.google.com](https://console.cloud.google.com) → proyecto `epa-turing`
+> 2. Menú → **IAM & Admin → Service Accounts** → **+ Crear cuenta de servicio**
+> 3. Nombre: `github-actions-deployer` → **Crear y continuar**
+> 4. Agrega los tres roles uno a uno: **Cloud Run Admin**, **Artifact Registry Writer**, **Service Account User** → **Listo**
+
 ### 2. Crear el JSON de credenciales y subirlo a GitHub
 
+**Opción B (gcloud):**
 ```bash
 # Generar el JSON de la service account
 gcloud iam service-accounts keys create github-actions-key.json \
@@ -79,17 +100,23 @@ gcloud iam service-accounts keys create github-actions-key.json \
 # NO commitearlo al repo. Borrarlo después de subirlo a GitHub.
 ```
 
-En GitHub → tu repo → Settings → Secrets and variables → Actions → New repository secret:
-- Nombre: `GCP_SA_KEY`
-- Valor: contenido completo del archivo `github-actions-key.json`
+> **Opción A (Consola GCP):**
+> 1. **IAM & Admin → Service Accounts** → click en `github-actions-deployer`
+> 2. Pestaña **Keys** → **Agregar clave → Crear nueva clave → JSON** → se descarga el archivo automáticamente
+> 3. ⚠️ Ese archivo es la credencial — no lo compartas ni lo subas al repo
 
-Luego borrar el archivo local:
+En GitHub → tu repo → **Settings → Secrets and variables → Actions → New repository secret**:
+- Nombre: `GCP_SA_KEY`
+- Valor: contenido completo del archivo JSON descargado (ábrelo con cualquier editor de texto, copia todo)
+
+Luego borra el archivo del disco (no lo dejes ahí):
 ```bash
 rm github-actions-key.json
 ```
 
 ### 3. Crear el repositorio en Artifact Registry
 
+**Opción B (gcloud):**
 ```bash
 gcloud artifacts repositories create epa-containers \
   --repository-format=docker \
@@ -97,6 +124,12 @@ gcloud artifacts repositories create epa-containers \
   --project=epa-turing \
   --description="Contenedores Docker de servicios EPA"
 ```
+
+> **Opción A (Consola GCP):**
+> 1. Menú → **Artifact Registry** → **+ Crear repositorio**
+> 2. Nombre: `epa-containers`, Formato: **Docker**, Región: `us-central1` → **Crear**
+
+> ℹ️ Si `epa-containers` ya existe en el proyecto (alguien del equipo lo creó antes), omitir este paso.
 
 ---
 
@@ -226,6 +259,64 @@ Para activar deploy en `dev` también (staging), duplicar el workflow con
 
 ---
 
+## QA local antes de hacer push a main
+
+Antes de hacer push a `main` — que dispara el deploy real — verifica que el servicio arranca y responde localmente. No requiere Docker ni herramientas adicionales; usa el runtime que ya tienes.
+
+### Python (FastAPI)
+
+```bash
+# Instalar dependencias (si aún no lo has hecho)
+pip install -r requirements.txt
+
+# Levantar en el mismo puerto que Cloud Run usa
+uvicorn main:app --host 0.0.0.0 --port 8080
+```
+
+En otra terminal (o en tu navegador en `localhost:8080`):
+```bash
+curl localhost:8080/health    # debe devolver 200
+curl localhost:8080/          # debe responder, sin errores 500
+```
+
+### TypeScript / Node (Hono)
+
+```bash
+npm install
+npm run dev   # o npm start — ver scripts en package.json
+```
+
+```bash
+curl localhost:8080/health
+```
+
+### Next.js
+
+```bash
+npm install
+npm run dev   # corre en :3000 por default
+```
+
+Abre `localhost:3000` en el navegador y verifica que la UI carga sin errores de consola.
+
+### Si tu servicio necesita variables de entorno
+
+Crea un archivo `.env.local` con los valores de prueba que necesites y cárgalo antes de iniciar:
+
+```bash
+# Python — usando python-dotenv o similar que ya tengas configurado
+# Node / Next.js
+cp .env.example .env.local   # editar con valores de prueba
+```
+
+> ⚠️ `.env.local` y `.env` deben estar en `.gitignore`. Nunca commitear credenciales, aunque sean de prueba.
+
+### ¿Cuándo es suficiente este QA?
+
+Para la mayoría de apps EPA (dashboards, APIs ligeras, ETLs simples): sí es suficiente. Si el servicio **necesita conectarse a Firestore o Secret Manager de producción para arrancar**, considera hacer push a `dev` primero y revisar el deploy de staging antes de mergear a `main`.
+
+---
+
 ## Checklist antes del primer deploy
 
 ```
@@ -289,6 +380,8 @@ gcloud run services logs tail {nombre-servicio} \
   --region=us-central1 \
   --project=epa-turing
 ```
+
+> **Sin gcloud:** Consola GCP → **Cloud Run** → selecciona tu servicio → pestaña **Logs**
 
 ---
 
