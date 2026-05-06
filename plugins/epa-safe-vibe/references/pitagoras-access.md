@@ -15,7 +15,7 @@ NUNCA acceder directamente a las APIs de plataforma desde código nuevo.
 ```
 API REST:    https://pitagoras-api-229508468478.us-central1.run.app
 API path:    /api/v1
-MCP Server:  https://pitagoras-mcp-689827400521.us-central1.run.app
+MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
 ```
 
 Ambos son públicos pero requieren autenticación. La API genera un token bearer
@@ -45,8 +45,9 @@ Datos e IA antes de buscar acceso directo a su API.
 ## Opción 1 — MCP de Pitágoras (recomendado para vibecoding)
 
 Si Claude Code o Cursor tienen el MCP configurado contra
-`https://pitagoras-mcp-689827400521.us-central1.run.app`, solo describe lo que
-quieres en lenguaje natural:
+`https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp` (con `/mcp` al final),
+solo describe lo que quieres en lenguaje natural. **El MCP usa Google OAuth**
+— la primera vez aprueba el prompt de Google con tu cuenta `@epa.digital`:
 
 ```
 "Obtén las campañas activas de Meta para el cliente Coppel del último mes"

@@ -116,7 +116,7 @@ TikTokBusinessSdk
 > duplica código, expone credenciales, rompe el historial centralizado de datos
 > y descarga el control de rate-limits a cada servicio. Usa la API de Pitágoras
 > (`https://pitagoras-api-229508468478.us-central1.run.app`) o el MCP
-> (`https://pitagoras-mcp-689827400521.us-central1.run.app`) en su lugar."
+> (`https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp`) en su lugar."
 
 Mostrar cómo acceder a Pitágoras (ver `references/pitagoras-access.md`).
 
@@ -185,7 +185,26 @@ Si el código hace operaciones GCP sin try/catch o manejo de excepciones:
 Si se definen variables sin el prefijo `EPA_`:
 
 > "⚠️ Por convención EPA, las variables de entorno deben usar el prefijo EPA_.
-> Ejemplo: EPA_KALMAN_API_PORT en lugar de PORT."
+> Ejemplo: EPA_PITAGORAS_API_PORT en lugar de PORT."
+
+### 🟡 A3.5 — Uso del dataset Coppel-Domo (`ga360-250517.Epa_dataset`)
+
+Si el código hace queries a `ga360-250517.Epa_dataset` o referencia tablas
+`PMBF_*`:
+
+> "⚠️ Estás consultando el dataset Coppel-Domo (`ga360-250517.Epa_dataset`).
+> El cliente pidió no usarlo salvo necesidad estricta.
+>
+> ¿Lo que necesitas son sólo costos? Esos están en
+> `bdd-epa-digital.epa_agency_reports.paid_media_metrics` con el resto de
+> los clientes. Cambia ahí.
+>
+> ¿Necesitas resultados detallados (transacciones por SKU, building blocks
+> de funnel custom) que no están en el dataset canónico? Confirma que sabes
+> exactamente qué tabla `PMBF_*` ocupar y por qué, y procede con
+> `maximum_bytes_billed` bajo (50 MB) durante exploración."
+
+NUNCA escribir en `ga360-250517.Epa_dataset` — el dataset es del cliente.
 
 ### 🟡 A4 — Datos de cliente en logs
 

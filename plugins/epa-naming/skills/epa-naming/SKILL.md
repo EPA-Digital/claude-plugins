@@ -74,9 +74,27 @@ CoppelCampaigns/{campaignId}/Audiences
 
 ---
 
-## BigQuery — Datasets y tablas
+## BigQuery — Proyectos, datasets y tablas
 
-### Datasets
+### Proyectos GCP donde vive BigQuery en EPA
+
+```
+bdd-epa-digital     ← dataset canónico de la agencia. Project separado.
+                      Dataset principal: epa_agency_reports
+                      Vistas: account_metrics_daily, paid_media_metrics
+                      (cost, sessions, transactions, revenue por client_name+medios+date)
+
+epa-turing          ← datasets ad-hoc por producto o cliente.
+                      RAW desde Pitágoras, staging, marts específicos.
+
+ga360-250517        ← excepción Coppel: dataset Epa_dataset con tablas PMBF_*.
+                      Resultados desde Domo. NO usar salvo necesidad explícita.
+```
+
+Antes de crear un dataset nuevo, validar si la métrica que necesitas ya está
+en `bdd-epa-digital.epa_agency_reports`. Si sí, no dupliques pipeline.
+
+### Datasets nuevos en `epa-turing`
 
 **Patrón:** `snake_case` con prefijo de cliente o producto.
 
@@ -87,11 +105,10 @@ CoppelCampaigns/{campaignId}/Audiences
 
 **Ejemplos correctos:**
 ```
-coppel_performance          ← métricas de performance de Coppel
 coppel_raw                  ← datos crudos de Coppel desde Pitágoras
-chedraui_attribution        ← atribución de Chedraui
+chedraui_attribution        ← modelado de atribución de Chedraui
 innovasport_audiences       ← audiencias de Innovasport
-nestle_performance          ← métricas de performance de Nestlé
+nestle_performance          ← mart específico de Nestlé
 abinbev_raw                 ← datos crudos de ABInBev
 farmacias_ahorro_raw        ← datos crudos de Farmacias del Ahorro
 pitagoras_logs              ← logs operativos de Pitágoras
@@ -100,7 +117,11 @@ epa_internal                ← datos internos de la agencia
 
 **Nota sobre nombres compuestos:** clientes con dos palabras como "Farmacias del
 Ahorro" se normalizan a `farmacias_ahorro` (sin artículos, snake_case). Validar
-con el área de Datos al onboardear cliente nuevo.
+con el área de Datos e IA al onboardear cliente nuevo.
+
+> **No crear** `*_performance` para datos que ya viven en
+> `bdd-epa-digital.epa_agency_reports`. La duplicación rompe consistencia y
+> dispara costo doble de ingesta.
 
 **Ejemplos incorrectos:**
 ```
@@ -133,7 +154,7 @@ audit_results               ← outputs de auditorías
 
 Toda tabla con datos temporales debe estar **particionada por fecha**:
 ```sql
-CREATE TABLE `epa-turing.coppel_performance.campaigns_daily` (
+CREATE TABLE `epa-turing.chedraui_performance.campaigns_daily` (
   date DATE NOT NULL,
   campaign_id STRING,
   impressions INT64,
@@ -382,7 +403,7 @@ const EPA_GCP_PROJECT = 'epa-turing'
 | Recurso | Convención | Ejemplo |
 |---|---|---|
 | Firestore collection | `PascalCase` con prefijo | `CoppelCampaigns` |
-| BQ dataset | `snake_case` con prefijo | `coppel_performance` |
+| BQ dataset | `snake_case` con prefijo | `chedraui_performance` |
 | BQ table | `snake_case` + granularidad | `campaigns_daily` |
 | Cloud Run service | `kebab-case` + sufijo tipo | `pitagoras-api` |
 | Cloud Run job | `kebab-case` + `-job` | `macstore-etl-job` |

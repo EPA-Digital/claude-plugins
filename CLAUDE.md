@@ -34,9 +34,21 @@ Project path:    projects/689827400521
 Región default:  us-central1
 ```
 
-**Todos los recursos de cualquier producto y cliente están en este mismo proyecto.**
-Por eso los nombres importan: el aislamiento entre productos y clientes ocurre
-por convenciones de naming, IAM y datasets, no por proyectos GCP separados.
+**Casi todo runtime y storage de productos/clientes vive en este proyecto.**
+Excepciones notables:
+
+```
+bdd-epa-digital      ← BigQuery canónico de la agencia (dataset epa_agency_reports)
+                       account_metrics_daily, paid_media_metrics
+                       — fuente de verdad para reporting cross-cliente.
+
+ga360-250517         ← BigQuery exclusivo de Coppel (dataset Epa_dataset)
+                       Tablas PMBF_*, vienen desde Domo.
+                       NO usar salvo necesidad explícita confirmada con el usuario.
+```
+
+El aislamiento entre productos y clientes en `epa-turing` ocurre por
+convenciones de naming, IAM y datasets, no por proyectos GCP separados.
 
 ---
 
@@ -44,7 +56,11 @@ por convenciones de naming, IAM y datasets, no por proyectos GCP separados.
 
 ```
 Compute:         Cloud Run (servicios) + Cloud Run Jobs (batch) + Cloud Scheduler
-Datos analíticos: BigQuery (datasets {cliente}_{tipo} y {producto}_{modulo})
+Datos analíticos: BigQuery
+                  - Canónico cross-cliente: `bdd-epa-digital.epa_agency_reports`
+                    (account_metrics_daily, paid_media_metrics)
+                  - Ad-hoc por producto/cliente: `epa-turing.{cliente}_{tipo}`
+                  - Excepción Coppel (resultados Domo): `ga360-250517.Epa_dataset`
 Documentos / estado: Firestore Native (colecciones {Producto}{Entidad})
 Archivos:        GCS (buckets epa-{proposito}-prod)
 Secretos:        Secret Manager (secrets en PascalCase)
@@ -73,7 +89,9 @@ DEBE pasar por Pitágoras.
 Endpoints (públicos, requieren auth):
 ```
 API REST:    https://pitagoras-api-229508468478.us-central1.run.app
-MCP Server:  https://pitagoras-mcp-689827400521.us-central1.run.app
+             auth: token bearer vía POST /api/v1/customers
+MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
+             auth: Google OAuth (cuenta @epa.digital)
 ```
 
 Acceder directo a las APIs de plataforma:

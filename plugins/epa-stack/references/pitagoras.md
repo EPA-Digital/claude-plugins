@@ -8,13 +8,19 @@ NUNCA acceder directamente a las APIs de plataforma desde código nuevo.
 ```
 API REST:    https://pitagoras-api-229508468478.us-central1.run.app
 API path:    /api/v1
-MCP Server:  https://pitagoras-mcp-689827400521.us-central1.run.app
+MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
 ```
 
-> Ambos endpoints son públicos pero **requieren autenticación**: la API por
-> token (paso por `/customers`), el MCP server por la misma capa de auth
-> internamente. No expongas ni el token ni el `user_email` que se usen para
-> autenticar en logs ni en respuestas de cliente.
+> Ambos endpoints son públicos pero **requieren autenticación distinta**:
+> - **API REST**: token bearer obtenido vía `POST /api/v1/customers` con un
+>   `user_email` autorizado. El token va en `Authorization` (sin `Bearer `).
+> - **MCP Server**: **Google OAuth**. La conexión se autentica con la cuenta
+>   Google del usuario (la misma de `@epa.digital`). El cliente MCP de Claude
+>   Code o Cursor maneja el flujo OAuth automáticamente; tú solo apruebas el
+>   prompt de Google la primera vez.
+>
+> Nunca expongas el token de la API ni el `user_email` en logs, respuestas
+> al cliente, ni en commits.
 
 ---
 
@@ -293,9 +299,15 @@ export class PitagorasClient {
 
 ## MCP de Pitágoras — uso en vibecoding
 
-Si Claude Code o Cursor tienen el MCP de Pitágoras configurado
-(`https://pitagoras-mcp-689827400521.us-central1.run.app`), basta con pedir en
-lenguaje natural:
+Si Claude Code o Cursor tienen el MCP de Pitágoras configurado en
+`https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp` (con `/mcp` al final, es
+obligatorio), basta con pedir en lenguaje natural:
+
+> **Auth:** el MCP server usa **Google OAuth**, no token bearer. La primera
+> vez que tu cliente MCP se conecta, abre un flujo de Google donde apruebas
+> el acceso con tu cuenta `@epa.digital`. Después se mantiene la sesión.
+> Si recibes errores de auth, cierra y reabre el cliente MCP para reactivar
+> el flujo OAuth.
 
 ```
 "Trae las campañas activas de Meta del cliente Coppel del último mes"

@@ -31,10 +31,23 @@ y seguir el árbol de decisión correspondiente.
 │       └── Ver references/pitagoras.md
 │       └── Para presupuestos por cuenta: endpoint /budgets (mismo provider list)
 │
-├── 2. NECESITO GUARDAR DATOS
-│   ├── ¿Son datos tabulares, históricos, o para análisis?
-│   │   └── → BigQuery
+├── 2. NECESITO LEER / GUARDAR DATOS
+│   ├── ¿Son métricas de performance cross-cliente (cost, sessions, transactions, revenue)?
+│   │   └── → BigQuery: `bdd-epa-digital.epa_agency_reports`
+│   │       Vistas canónicas: account_metrics_daily (orgánico+paid),
+│   │       paid_media_metrics (paid + campaign_type).
+│   │       NO duplicar este pipeline en epa-turing.
+│   │
+│   ├── ¿Coppel y necesitas resultados de campaña detallados que NO están en
+│   │     bdd-epa-digital (transacciones por SKU, building blocks de funnel)?
+│   │   └── → Excepción: ga360-250517.Epa_dataset (tablas PMBF_*)
+│   │       Sólo si es estrictamente necesario — el cliente pidió no usar
+│   │       Domo salvo necesidad. Confirmar con el usuario primero.
+│   │
+│   ├── ¿Son datos tabulares de un producto interno o cliente sin pipeline canónico?
+│   │   └── → BigQuery en `epa-turing`
 │   │       Dataset: {cliente}_{tipo} o {producto}_{modulo}
+│   │       (raw / staging / performance — ver bigquery-patterns.md)
 │   │
 │   ├── ¿Son documentos, configuración, estado de app, o usuarios?
 │   │   └── → Firestore
@@ -281,19 +294,34 @@ db.collection("CoppelCampaigns").document(doc_id).set(data, merge=True)
 ```python
 from google.cloud import bigquery
 
+# El cliente puede correr desde epa-turing y consultar bdd-epa-digital
+# si el service account tiene roles/bigquery.dataViewer en el dataset
 client = bigquery.Client(project="epa-turing")
 
-# Siempre especificar el dataset con el proyecto
+# Métricas cross-cliente: usar el dataset canónico
 query = """
-    SELECT campaign_id, impressions, clicks, spend
-    FROM `epa-turing.coppel_performance.campaigns_daily`
+    SELECT
+      client_name,
+      medios,
+      date,
+      SUM(cost)         AS cost,
+      SUM(sessions)     AS sessions,
+      SUM(transactions) AS transactions,
+      SUM(revenue)      AS revenue
+    FROM `bdd-epa-digital.epa_agency_reports.account_metrics_daily`
     WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+      AND client_name = @client_name
+    GROUP BY 1, 2, 3
+    ORDER BY date DESC
     LIMIT 1000
 """
 
 # Configurar un límite de bytes para evitar costos inesperados
 job_config = bigquery.QueryJobConfig(
-    maximum_bytes_billed=100 * 1024 * 1024  # 100 MB máximo
+    maximum_bytes_billed=100 * 1024 * 1024,  # 100 MB máximo
+    query_parameters=[
+        bigquery.ScalarQueryParameter("client_name", "STRING", "Innovasport"),
+    ],
 )
 
 results = client.query(query, job_config=job_config).result()
