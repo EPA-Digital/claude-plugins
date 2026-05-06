@@ -110,11 +110,12 @@ NO modificar, eliminar ni sobreescribir sin autorización del **área de Datos e
 (`datos@epa.digital`):
 
 ```
-Firestore:
-  PitagorasUsers       ← autenticación de toda la plataforma
-  PitagorasTokens      ← tokens de sesión activos
+Firestore (bdd-epa-digital — nombres en lowercase, son colecciones legacy):
+  users          ← autenticación y permisos de todos los usuarios
+  clients        ← cuentas y credenciales de todos los clientes activos
+  budgets        ← presupuesto y pacing por cuenta
 
-Secret Manager:
+Secret Manager (epa-turing):
   FacebookAccessToken
   TiktokToken
   GoogleAdsYAML

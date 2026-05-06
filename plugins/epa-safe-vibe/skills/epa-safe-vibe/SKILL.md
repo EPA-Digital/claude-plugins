@@ -50,8 +50,12 @@ eliminar, borrar, vaciar, limpiar, resetear colección/tabla/bucket
 5. Si el recurso es protegido: BLOQUEO TOTAL — redirigir al área de Datos e IA (datos@epa.digital)
 
 **Caso real que originó esta regla:**
-La colección `PitagorasUsers` fue eliminada accidentalmente durante la creación
+Una colección de autenticación fue eliminada accidentalmente durante la creación
 de un producto nuevo en el mismo proyecto GCP. Firestore no tiene papelera.
+
+> Las colecciones protegidas viven en **`bdd-epa-digital`** (no en `epa-turing`).
+> Sus nombres son **lowercase**: `users`, `clients`, `budgets`.
+> Ver lista completa en `references/protected-resources.md`.
 
 ### 🔴 B2 — Credenciales hardcodeadas en código
 
@@ -258,8 +262,13 @@ Lista completa en `references/protected-resources.md`.
 
 Protegidos críticos (BLOQUEO TOTAL si se intenta modificar):
 ```
-Firestore:    PitagorasUsers, PitagorasTokens
-Secret Manager: FacebookAccessToken, TiktokToken, GoogleAdsYAML, BingAccessTokenEpa
+Firestore (bdd-epa-digital — nombres en lowercase, son legacy):
+  users          ← autenticación y permisos de todos los usuarios
+  clients        ← cuentas y credenciales de todos los clientes
+  budgets        ← presupuesto y pacing por cuenta
+
+Secret Manager (epa-turing):
+  FacebookAccessToken, TiktokToken, GoogleAdsYAML, BingAccessTokenEpa
 ```
 
 ---

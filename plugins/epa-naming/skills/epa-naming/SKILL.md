@@ -82,28 +82,25 @@ de fijar el nombre.)
 
 ## Firestore — Colecciones
 
-**Patrón:** `PascalCase` con prefijo de producto o cliente.
+**Patrón para colecciones nuevas en `epa-turing`:** `PascalCase` con prefijo de
+producto o cliente.
 
 ```
 {Producto}{Entidad}      ← producto interno
 {Cliente}{Entidad}       ← trabajo de cliente
 ```
 
-**Ejemplos correctos:**
+**Ejemplos correctos (colecciones nuevas en epa-turing):**
 ```
-PitagorasUsers              ← usuarios de Pitágoras (PROTEGIDO)
-PitagorasTokens             ← tokens de sesión (PROTEGIDO)
 CoppelCampaigns             ← campañas del cliente Coppel
 ChedrauiOrders              ← órdenes del cliente Chedraui
 InnovasportAudiences        ← audiencias del cliente Innovasport
 NestleCreatives             ← assets creativos del cliente Nestlé
-EpaSettings                 ← configuración global
 ```
 
 **Ejemplos incorrectos:**
 ```
-✗ users                     ← sin prefijo, colisiona entre productos
-✗ coppel_campaigns          ← snake_case no es la convención de Firestore
+✗ coppel_campaigns          ← snake_case no es la convención para epa-turing
 ✗ campaigns-coppel          ← orden invertido, kebab-case
 ✗ data                      ← genérico, no dice nada
 ```
@@ -113,6 +110,17 @@ EpaSettings                 ← configuración global
 CoppelCampaigns/{campaignId}/Insights
 CoppelCampaigns/{campaignId}/Audiences
 ```
+
+> **Excepción — colecciones legacy en `bdd-epa-digital`:**
+> `bdd-epa-digital` tiene Firestore con colecciones en **lowercase** que existen
+> antes de que se formalizara esta convención:
+> `users`, `clients`, `budgets`, `analyses`, `audits`, `etl_runs`,
+> `extraction_logs`, `historic`, `processed_documents`, `projects`, `rules`.
+>
+> - **No renombrarlas.** Se usan en producción tal como están.
+> - **No crear colecciones nuevas en `bdd-epa-digital`** sin consultar al área de Datos e IA.
+> - `users`, `clients` y `budgets` son **colecciones protegidas** — bloqueo total en epa-safe-vibe.
+> - Para trabajo nuevo, usar `epa-turing` con PascalCase.
 
 ---
 
