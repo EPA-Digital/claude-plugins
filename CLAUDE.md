@@ -10,9 +10,11 @@ código o assets de EPA Digital.
 **EPA Digital** es una agencia de marketing de performance con HQ en LATAM
 (~170 personas). Trabajo se divide en dos grandes superficies:
 
-1. **Productos internos** — Pitágoras (capa de integración centralizada a APIs
-   de medios pagados). Único producto en producción. Otros productos están en
-   desarrollo o exploración y no deben asumirse como existentes.
+1. **Productos internos** — **Pitágoras** (capa de integración centralizada
+   a APIs de medios y analytics: Google Ads, Meta, Universal Analytics, GA4,
+   Bing, TikTok, LinkedIn y DV360). Único producto en producción. Otros
+   productos están en desarrollo o exploración y no deben asumirse como
+   existentes.
 2. **Operación de cliente** — campañas, dashboards, atribución y alertas para
    los clientes activos de la agencia. Cartera actual incluye (entre otros):
    ABInBev, AMVO, Coppel, Chedraui, Farmacias del Ahorro, Innovasport, Nestlé
@@ -62,13 +64,23 @@ Detalles completos: ver el plugin `epa-stack`.
 
 ## Pitágoras — la regla más importante
 
-**Pitágoras** es la capa de integración centralizada para datos de medios pagados
-(Meta, Google Ads, TikTok, Bing). Toda app, dashboard o ETL que necesite datos
-de medios DEBE pasar por Pitágoras. Acceder directo a las APIs de plataforma:
+**Pitágoras** es la capa de integración centralizada para datos de medios y
+analytics. Soporta 8 providers hoy: **Google Ads, Meta (Facebook + Instagram),
+Universal Analytics, GA4, Bing, TikTok, LinkedIn y DV360**. Toda app,
+dashboard, ETL o reporte que necesite datos de cualquiera de estos providers
+DEBE pasar por Pitágoras.
 
+Endpoints (públicos, requieren auth):
+```
+API REST:    https://pitagoras-api-229508468478.us-central1.run.app
+MCP Server:  https://pitagoras-mcp-689827400521.us-central1.run.app
+```
+
+Acceder directo a las APIs de plataforma:
 - Duplica código de auth y paginación entre productos.
 - Expone tokens en repos.
 - Rompe el historial centralizado de datos.
+- Descarga el control de rate-limits a cada servicio.
 
 Cómo usarlo: ver `pitagoras.md` en `epa-stack/references/`.
 

@@ -1,106 +1,210 @@
 # Pitágoras — Acceso desde código
 
 Pitágoras es la capa de integración centralizada de EPA para datos de medios.
-NUNCA acceder directamente a Meta, Google Ads, TikTok, o Bing desde código nuevo.
+NUNCA acceder directamente a las APIs de plataforma desde código nuevo.
 
-Endpoint base: `https://pitagoras-api-2yl4a3ya6a-uc.a.run.app`
-MCP endpoint:  `https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp`
+## Endpoints
+
+```
+API REST:    https://pitagoras-api-229508468478.us-central1.run.app
+API path:    /api/v1
+MCP Server:  https://pitagoras-mcp-689827400521.us-central1.run.app
+```
+
+> Ambos endpoints son públicos pero **requieren autenticación**: la API por
+> token (paso por `/customers`), el MCP server por la misma capa de auth
+> internamente. No expongas ni el token ni el `user_email` que se usen para
+> autenticar en logs ni en respuestas de cliente.
+
+---
+
+## Plataformas soportadas hoy
+
+Pitágoras agrega 8 fuentes de medios. La lista vigente (ver dropdown "Select
+a provider" en el frontend) es:
+
+| Provider key | Plataforma |
+|---|---|
+| `googleads` (alias `adwords`) | Google Ads |
+| `analytics` | Universal Analytics (legacy, ojo: deprecado por Google a julio 2024) |
+| `analytics4` | Google Analytics 4 (GA4) |
+| `facebook` | Meta Ads (Facebook + Instagram) |
+| `bing` | Microsoft Advertising (Bing) |
+| `tiktok` | TikTok Ads |
+| `linkedin` | LinkedIn Ads |
+| `dv360` | Display & Video 360 |
+
+Cuando una plataforma nueva no esté en la lista, contactar al área de Datos
+e IA antes de buscar acceso directo a su API.
 
 ---
 
 ## Decisión rápida — qué método usar
 
 ```
-Vibecoding interactivo (Claude Code, Cowork)
-    └── MCP de Pitágoras (sin código)
+Vibecoding interactivo (Claude Code, Cursor, Cowork)
+    └── MCP de Pitágoras (sin escribir código)
 
 App o servicio en runtime
-    └── REST API con httpx / fetch
+    └── API REST con httpx / fetch + token bearer
 
 Pipeline batch a BigQuery
-    └── REST API + Cloud Run job (no llamar desde dashboard)
+    └── API REST + Cloud Run job (no llamar desde dashboard)
 
 n8n flow
     └── HTTP Request node con credencial "EPA · Pitágoras API"
+
+Solo necesito presupuestos asignados por cuenta
+    └── Endpoint de budgets (ver más abajo)
 ```
 
 ---
 
-## Plataformas disponibles
+## Endpoints principales de la API
+
+### Auth — obtener token y customers
+
+`POST /api/v1/customers` con body `{ "user_email": "..." }`. Devuelve el token
+y la lista de customers a los que ese email tiene acceso. El token va en cada
+request en el header `Authorization` **sin el prefijo `Bearer`**.
+
+### Reportes (uno por plataforma)
 
 ```
-facebook    →  Meta Ads (campañas, ad sets, ads, métricas)
-googleads   →  Google Ads (campañas, grupos, keywords)
-tiktok      →  TikTok Ads
-bing        →  Microsoft Advertising
+POST /api/v1/adwords/report          ← Google Ads
+POST /api/v1/facebook/report         ← Meta Ads
+POST /api/v1/analytics/report        ← Universal Analytics
+POST /api/v1/analytics4/report       ← GA4
+POST /api/v1/bing/report             ← Bing
+POST /api/v1/tik-tok/report          ← TikTok
+POST /api/v1/linkedin/report         ← LinkedIn
+POST /api/v1/dv360/report            ← DV360
 ```
 
-Endpoints comunes:
+Estructura común:
+- `accounts` (array de objetos identificadores de cuenta)
+- `start_date`, `end_date` en formato `YYYY-MM-DD`
+- Campos específicos por plataforma: `metrics`, `dimensions`, `fields`,
+  `attributes`, `segments`, `level`, `data_level`, `columns` — depende de la
+  plataforma. Ver el SDK / MCP para el shape exacto.
+
+### Endpoints de descubrimiento
+
+Útiles para construir reportes dinámicos:
 ```
-GET /api/v1/{platform}/accounts
-GET /api/v1/{platform}/campaigns?client_id=&date_from=&date_to=
-GET /api/v1/{platform}/insights?level=ad&...
+GET  /api/v1/adwords/resources
+GET  /api/v1/adwords/attributes?resource_name=…
+GET  /api/v1/adwords/segments?resource_name=…
+GET  /api/v1/adwords/metrics?resource_name=…
+GET  /api/v1/facebook/schema
+GET  /api/v1/analytics/dimensions
+POST /api/v1/analytics/metrics       ← body: { dimensions: [...] }
+POST /api/v1/analytics/filters       ← body: dimensions
+POST /api/v1/analytics4/metadata     ← body: { property_id }
+GET  /api/v1/bing/levels
+GET  /api/v1/bing/columns?level=…
+GET  /api/v1/tik-tok/data-levels
+GET  /api/v1/tik-tok/dimensions?data-level=…
+POST /api/v1/tik-tok/metrics         ← body: { dimensions: [...] }
 ```
+
+### Budgets
+
+Endpoint dedicado a extraer presupuestos asignados por provider y cuenta —
+útil para alertas de pacing y reconciliación con plataforma. Acepta los 8
+providers listados arriba (ver dropdown "Select a provider" en el frontend).
+
+```
+GET /api/v1/{provider}/budgets?account_id=…
+```
+
+Validar el shape exacto contra el contrato vigente con el área de Datos e IA
+antes de integrar — la respuesta varía por provider.
 
 ---
 
-## Autenticación
+## Autenticación — patrón de cliente
 
-API key en Secret Manager: `PitagorasApiKey`.
+API key de Pitágoras NO existe como secret estático compartido. El flujo es:
+
+1. Cliente envía `POST /customers` con un `user_email` autorizado (alta vía
+   el área de Datos e IA).
+2. Pitágoras devuelve un token + la lista de customers permitidos para ese email.
+3. Cliente usa ese token en `Authorization` para los demás endpoints.
+4. Si recibe `401`, repite el paso 1 — el token expira.
 
 ```python
-from google.cloud import secretmanager
+import httpx
+from typing import Any
 
-def get_pitagoras_token() -> str:
-    client = secretmanager.SecretManagerServiceClient()
-    name = "projects/689827400521/secrets/PitagorasApiKey/versions/latest"
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
+PITAGORAS_BASE_URL = "https://pitagoras-api-229508468478.us-central1.run.app"
+
+async def get_pitagoras_token(user_email: str) -> tuple[str, list[dict[str, Any]]]:
+    async with httpx.AsyncClient(timeout=30.0) as http:
+        response = await http.post(
+            f"{PITAGORAS_BASE_URL}/api/v1/customers",
+            json={"user_email": user_email},
+        )
+        response.raise_for_status()
+        data = response.json()
+        return data["token"], data.get("customers", [])
 ```
-
-NUNCA hardcodear la key. NUNCA pasarla como query param (logs, accidental git
-commits).
 
 ---
 
 ## Cliente Python — patrón estándar
 
 ```python
-import os
 import httpx
-from google.cloud import secretmanager
 from typing import Any
 
-PITAGORAS_BASE_URL = "https://pitagoras-api-2yl4a3ya6a-uc.a.run.app"
-
-def _get_token() -> str:
-    client = secretmanager.SecretManagerServiceClient()
-    name = "projects/689827400521/secrets/PitagorasApiKey/versions/latest"
-    response = client.access_secret_version(request={"name": name})
-    return response.payload.data.decode("UTF-8")
+PITAGORAS_BASE_URL = "https://pitagoras-api-229508468478.us-central1.run.app"
 
 class PitagorasClient:
-    def __init__(self, timeout: float = 30.0):
-        self._token = _get_token()
+    def __init__(self, user_email: str, timeout: float = 30.0):
+        self._user_email = user_email
         self._timeout = timeout
+        self._token: str | None = None
 
-    async def get_campaigns(
-        self,
-        platform: str,
-        client_id: str,
-        date_from: str,
-        date_to: str,
-    ) -> list[dict[str, Any]]:
+    async def _ensure_token(self) -> str:
+        if self._token:
+            return self._token
         async with httpx.AsyncClient(timeout=self._timeout) as http:
-            response = await http.get(
-                f"{PITAGORAS_BASE_URL}/api/v1/{platform}/campaigns",
-                headers={"Authorization": f"Bearer {self._token}"},
-                params={
-                    "client_id": client_id,
-                    "date_from": date_from,
-                    "date_to": date_to,
+            response = await http.post(
+                f"{PITAGORAS_BASE_URL}/api/v1/customers",
+                json={"user_email": self._user_email},
+            )
+            response.raise_for_status()
+            self._token = response.json()["token"]
+            return self._token
+
+    async def adwords_report(
+        self,
+        accounts: list[dict[str, Any]],
+        resource: str,
+        metrics: list[str],
+        attributes: list[dict[str, Any]],
+        segments: list[str],
+        start_date: str,
+        end_date: str,
+    ) -> Any:
+        token = await self._ensure_token()
+        async with httpx.AsyncClient(timeout=self._timeout) as http:
+            response = await http.post(
+                f"{PITAGORAS_BASE_URL}/api/v1/adwords/report",
+                headers={"Authorization": token},
+                json={
+                    "accounts": accounts,
+                    "resource": resource,
+                    "metrics": metrics,
+                    "attributes": attributes,
+                    "segments": segments,
+                    "start_date": start_date,
+                    "end_date": end_date,
                 },
             )
+            if response.status_code == 401:
+                self._token = None  # expira; siguiente call refresca
             response.raise_for_status()
             return response.json()
 ```
@@ -108,49 +212,64 @@ class PitagorasClient:
 Características obligatorias:
 - Timeout explícito (default 30s).
 - `raise_for_status()` para fallar fuerte si el upstream responde mal.
-- Lectura del token solo en `__init__` — no en cada request.
+- Reintento automático en 401 refrescando el token.
+- NUNCA hardcodear el `user_email` real en el código de producción —
+  inyectarlo por variable de entorno.
 
 ---
 
 ## Cliente TypeScript — patrón estándar
 
 ```typescript
-import { SecretManagerServiceClient } from '@google-cloud/secret-manager'
-
-const PITAGORAS_BASE_URL = 'https://pitagoras-api-2yl4a3ya6a-uc.a.run.app'
-const PROJECT = 'epa-turing'
-
-async function getToken(): Promise<string> {
-  const sm = new SecretManagerServiceClient()
-  const [version] = await sm.accessSecretVersion({
-    name: `projects/689827400521/secrets/PitagorasApiKey/versions/latest`,
-  })
-  return version.payload!.data!.toString()
-}
+const PITAGORAS_BASE_URL = 'https://pitagoras-api-229508468478.us-central1.run.app'
 
 export class PitagorasClient {
-  private token: Promise<string>
+  private token: string | null = null
 
-  constructor() {
-    this.token = getToken()
+  constructor(private userEmail: string) {}
+
+  private async ensureToken(): Promise<string> {
+    if (this.token) return this.token
+    const res = await fetch(`${PITAGORAS_BASE_URL}/api/v1/customers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_email: this.userEmail }),
+    })
+    if (!res.ok) throw new Error(`Pitágoras /customers ${res.status}`)
+    const data = await res.json()
+    this.token = data.token as string
+    return this.token
   }
 
-  async getCampaigns(params: {
-    platform: 'facebook' | 'googleads' | 'tiktok' | 'bing'
-    clientId: string
-    dateFrom: string
-    dateTo: string
+  async facebookReport(params: {
+    accounts: Array<Record<string, unknown>>
+    fields: string[]
+    level?: string
+    breakdowns?: string[]
+    startDate: string
+    endDate: string
   }) {
-    const token = await this.token
-    const url = new URL(`${PITAGORAS_BASE_URL}/api/v1/${params.platform}/campaigns`)
-    url.searchParams.set('client_id', params.clientId)
-    url.searchParams.set('date_from', params.dateFrom)
-    url.searchParams.set('date_to', params.dateTo)
-
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) throw new Error(`Pitágoras ${res.status}: ${await res.text()}`)
+    const token = await this.ensureToken()
+    const res = await fetch(
+      `${PITAGORAS_BASE_URL}/api/v1/facebook/report`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token,
+        },
+        body: JSON.stringify({
+          accounts: params.accounts,
+          fields: params.fields,
+          level: params.level,
+          breakdowns: params.breakdowns,
+          start_date: params.startDate,
+          end_date: params.endDate,
+        }),
+      }
+    )
+    if (res.status === 401) this.token = null
+    if (!res.ok) throw new Error(`Pitágoras facebook ${res.status}: ${await res.text()}`)
     return res.json()
   }
 }
@@ -164,27 +283,65 @@ export class PitagorasClient {
 |---|---|---|
 | 200 | OK | Continuar |
 | 400 | Bad request — parámetros inválidos | Loggear, no reintentar |
-| 401 | Token inválido o expirado | Rotar el secret, contactar Datos |
-| 404 | Cliente o plataforma no existen | Validar inputs |
+| 401 | Token inválido o expirado | Refrescar token con `/customers` y reintentar |
+| 403 | El user_email no tiene acceso a esa cuenta | Validar permisos, contactar Datos |
+| 404 | Cuenta o plataforma no existen | Validar inputs |
 | 429 | Rate limit | Backoff exponencial, máx 3 reintentos |
 | 5xx | Error interno de Pitágoras | Reintentar con backoff, notificar a Datos si persiste |
 
-```python
-import asyncio
-import httpx
+---
 
-async def with_retry(coro, max_attempts: int = 3):
-    for attempt in range(max_attempts):
-        try:
-            return await coro()
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code in (429, 502, 503, 504):
-                if attempt == max_attempts - 1:
-                    raise
-                await asyncio.sleep(2 ** attempt)
-            else:
-                raise
+## MCP de Pitágoras — uso en vibecoding
+
+Si Claude Code o Cursor tienen el MCP de Pitágoras configurado
+(`https://pitagoras-mcp-689827400521.us-central1.run.app`), basta con pedir en
+lenguaje natural:
+
 ```
+"Trae las campañas activas de Meta del cliente Coppel del último mes"
+"Compárame el ROAS de Google Ads vs Meta para Innovasport en Q1"
+"Detecta fatiga creativa en Meta para Chedraui en los últimos 21 días"
+"Hazme un Root Cause Analysis cross-channel de Nestlé del último mes"
+```
+
+El MCP resuelve auth, paginación, normalización de datos y trae **prompts
+predefinidos** para análisis frecuentes. Tools y prompts disponibles:
+
+### Tools
+- `get_customers` — auth + lista de cuentas accesibles
+- `adwords_report`, `facebook_report`, `analytics_report`, `analytics4_report`,
+  `bing_report`, `tiktok_report` — reportes por plataforma
+- `ping` — health check
+
+### Resources de descubrimiento
+```
+adwords://resources, adwords://attributes/{resource},
+adwords://segments/{resource}, adwords://metrics/{resource}
+facebook://schema
+analytics://dimensions, analytics://metrics, analytics://filters
+analytics4://metadata
+bing://levels, bing://columns/{level}
+tiktok://data-levels, tiktok://dimensions/{data_level}, tiktok://metrics
+```
+
+### Prompts predefinidos (selección)
+```
+Meta:           meta_weekly_performance, meta_creative_fatigue,
+                meta_audience_performance, meta_account_health,
+                meta_budget_efficiency, meta_rca
+Google Ads:     google_ads_weekly_performance, google_ads_auction_insights,
+                google_ads_search_terms, google_ads_shopping_performance,
+                google_ads_account_audit, google_ads_rca
+GA / GA4:       analytics_channel_attribution, analytics_funnel_leaks,
+                analytics_audience_segments, analytics_checkout_abandonment
+Cross-channel:  cross_channel_performance, cross_channel_rca,
+                cross_channel_budget_optimization
+```
+
+> El MCP todavía no expone reportes de **LinkedIn ni DV360** aunque la API sí los
+> soporta. Para esos providers, usar la API REST directamente hasta nuevo aviso.
+
+Para apps en runtime (no vibecoding), seguir usando la API REST.
 
 ---
 
@@ -192,26 +349,11 @@ async def with_retry(coro, max_attempts: int = 3):
 
 | Necesidad | Herramienta correcta |
 |---|---|
-| Analytics de sitio web | GA4 API directamente |
 | Datos de CRM del cliente | API del CRM del cliente |
 | Datos internos de EPA | BigQuery o Firestore en epa-turing |
 | Datos de Google Search Console | GSC API directamente |
 | Datos de medios orgánicos (no paid) | Plataforma directamente |
-
----
-
-## MCP — uso en vibecoding
-
-Si Claude Code o Cowork tienen el MCP de Pitágoras configurado, basta con
-pedir en lenguaje natural:
-
-```
-"Trae las campañas activas de Meta del cliente Coppel del último mes"
-"Compárame el ROAS de Google Ads vs Meta para Innovasport en Q1"
-```
-
-El MCP se encarga de auth, paginación y normalización. Para apps en runtime,
-seguir usando la API REST.
+| Web analytics de un sitio sin GA4 instalado | No existe vía Pitágoras |
 
 ---
 
@@ -219,7 +361,7 @@ seguir usando la API REST.
 
 ```
 Pitágoras API
-     ↓ (Cloud Run job, programado)
+     ↓ (Cloud Run job, programado por Cloud Scheduler)
 GCS bucket `epa-{cliente}-raw-prod`
      ↓ (BQ load job)
 BigQuery dataset `{cliente}_raw`
@@ -236,6 +378,7 @@ es alta y se queman llamados a las APIs upstream. Cachear vía BigQuery.
 
 ## Soporte
 
-Si la API de Pitágoras devuelve errores raros o no tiene los datos esperados,
-contactar al área de Datos antes de buscar alternativas directas a las APIs
-de plataforma.
+Si la API de Pitágoras devuelve errores raros, no tiene los datos esperados,
+o necesitas onboardear un `user_email` nuevo, contactar al área de Datos e IA
+(`datos@epa.digital`) antes de buscar alternativas directas a las APIs de
+plataforma.

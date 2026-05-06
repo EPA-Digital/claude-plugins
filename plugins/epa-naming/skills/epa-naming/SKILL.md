@@ -358,7 +358,7 @@ class CoppelAttributionEngine: ...
 
 # constantes: SCREAMING_SNAKE_CASE
 EPA_GCP_PROJECT = "epa-turing"
-PITAGORAS_API_URL = "https://pitagoras-api-2yl4a3ya6a-uc.a.run.app"
+PITAGORAS_API_URL = "https://pitagoras-api-229508468478.us-central1.run.app"
 ```
 
 ### TypeScript

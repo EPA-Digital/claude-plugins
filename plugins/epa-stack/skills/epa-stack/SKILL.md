@@ -25,9 +25,11 @@ y seguir el árbol de decisión correspondiente.
 ```
 ¿Qué estoy construyendo?
 │
-├── 1. NECESITO DATOS DE MEDIOS (Meta, Google Ads, TikTok, Bing)
+├── 1. NECESITO DATOS DE MEDIOS O ANALYTICS
+│   │   (Google Ads, Meta, Universal Analytics, GA4, Bing, TikTok, LinkedIn, DV360)
 │   └── → Pitágoras API o MCP — nunca directo a la plataforma
 │       └── Ver references/pitagoras.md
+│       └── Para presupuestos por cuenta: endpoint /budgets (mismo provider list)
 │
 ├── 2. NECESITO GUARDAR DATOS
 │   ├── ¿Son datos tabulares, históricos, o para análisis?

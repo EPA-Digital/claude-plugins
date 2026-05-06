@@ -82,23 +82,46 @@ def get_secret(secret_id: str) -> str:
 # FacebookAccessToken, TiktokToken, GoogleAdsYAML, BingAccessTokenEpa
 ```
 
-### 🔴 B3 — Acceso directo a APIs de medios sin Pitágoras
+### 🔴 B3 — Acceso directo a APIs de medios o analytics sin Pitágoras
 
-Si el usuario intenta conectarse directamente a Meta, Google Ads, TikTok, o Bing:
+Pitágoras agrega 8 providers hoy: Google Ads, Meta, Universal Analytics, GA4,
+Bing, TikTok, LinkedIn y DV360. Si el código intenta conectarse directo a
+cualquiera de las siguientes APIs, BLOQUEAR:
+
 ```
-graph.facebook.com
-googleads.googleapis.com
-business-api.tiktok.com
-bingads.microsoft.com
+graph.facebook.com                          ← Meta Ads / Marketing API
+googleads.googleapis.com                    ← Google Ads
+analyticsdata.googleapis.com                ← GA4 Data API
+analyticsreporting.googleapis.com           ← Universal Analytics (legacy)
+analytics.googleapis.com                    ← UA Management API
+business-api.tiktok.com                     ← TikTok Ads
+bingads.microsoft.com                       ← Bing / Microsoft Advertising
+api.linkedin.com/v2/adAccounts              ← LinkedIn Ads
+displayvideo.googleapis.com                 ← DV360
+doubleclickbidmanager.googleapis.com        ← DV360 reporting
+```
+
+También bloquear bibliotecas cliente que conectan directo:
+```
+facebook-business (Meta SDK)
+google-ads (Google Ads SDK)
+google-analytics-data (GA4 SDK)
+linkedin-api / python-linkedin
+TikTokBusinessSdk
 ```
 
 **Acción:** DETENER. Explicar:
-> "EPA tiene Pitágoras, una capa de integración centralizada para todos los medios.
-> Acceder directamente a las APIs de plataforma duplica código, expone credenciales,
-> y rompe el historial centralizado de datos.
-> Usa la API de Pitágoras o el MCP de Pitágoras en su lugar."
+> "EPA tiene Pitágoras, una capa de integración centralizada para los 8 providers
+> de medios y analytics que usamos. Acceder directamente a las APIs de plataforma
+> duplica código, expone credenciales, rompe el historial centralizado de datos
+> y descarga el control de rate-limits a cada servicio. Usa la API de Pitágoras
+> (`https://pitagoras-api-229508468478.us-central1.run.app`) o el MCP
+> (`https://pitagoras-mcp-689827400521.us-central1.run.app`) en su lugar."
 
 Mostrar cómo acceder a Pitágoras (ver `references/pitagoras-access.md`).
+
+**Excepción:** Google Search Console API y CRM de cliente NO pasan por Pitágoras.
+Para esos casos, conexión directa con su propio secret en Secret Manager.
 
 ### 🔴 B4 — Google Sheets como base de datos principal
 
