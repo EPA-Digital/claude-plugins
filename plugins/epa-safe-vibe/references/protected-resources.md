@@ -56,6 +56,25 @@ projects/689827400521/secrets/{NombreSecret}/versions/latest
 
 ---
 
+## Cloud Run — Servicios protegidos
+
+| Servicio | Proyecto | Por qué es crítico |
+|---|---|---|
+| `epa-dashboard` (**Newton**) | `bdd-epa-digital` | Intranet de EPA en `dashboard.epa.digital` — dashboard usado a diario para revisar el estatus de cuentas. Lleva >1 año corriendo con ese nombre genérico (legacy; debió ser `newton-web`). |
+| `pitagoras-api` | `epa-turing` | Capa centralizada de medios (8 providers). Romperla rompe ETLs y reportes de toda la agencia. |
+
+**Operaciones bloqueadas (BLOQUEO TOTAL):**
+- `gcloud run deploy` apuntando a uno de estos nombres (sobrescribe el servicio vivo).
+- `gcloud run services delete/update/replace` sobre ellos.
+- Crear un trigger de Cloud Build que despliegue sobre estos nombres.
+
+> ⚠️ **Incidente Newton (2026-06-09):** un deploy automatizado reusó el nombre
+> `epa-dashboard` en `bdd-epa-digital` y sobrescribió a Newton. Regla derivada (ver
+> `SKILL.md` B7): deploys de IA → **solo `epa-turing` + sufijo `-vibe`**; nombres limpios
+> los despliega una persona con su identidad. El hook `hooks/guard-cloud-deploy.sh` lo enforce.
+
+---
+
 ## Procedimiento de recuperación ante pérdida de datos
 
 ### Firestore (`bdd-epa-digital`)

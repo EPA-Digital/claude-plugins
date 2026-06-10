@@ -185,6 +185,19 @@ jobs:
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
           docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest
 
+      # Guard de existencia: la PRIMERA vez que se crea el servicio, aborta si el
+      # nombre ya existe (un deploy a un nombre existente lo SOBREESCRIBE — incidente
+      # Newton). Quitar este step una vez que el servicio es tuyo y deployeas updates.
+      - name: Guard — el servicio no debe existir ya (primer deploy)
+        if: ${{ vars.FIRST_DEPLOY == 'true' }}
+        run: |
+          if gcloud run services describe ${{ env.SERVICE_NAME }} \
+               --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
+            echo "🔴 El servicio '${{ env.SERVICE_NAME }}' YA existe en ${{ env.PROJECT_ID }}."
+            echo "   Un deploy lo SOBREESCRIBIRÍA. Elige otro nombre (ver epa-naming / epa-safe-vibe B7)."
+            exit 1
+          fi
+
       - name: Deploy a Cloud Run
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
@@ -336,6 +349,10 @@ GCP
 [ ] El repositorio epa-containers existe en Artifact Registry
 [ ] La service account github-actions-deployer tiene los permisos correctos
 [ ] El proyecto epa-turing está seleccionado (no otro proyecto)
+[ ] Corrí `gcloud run services list --project=epa-turing` y SERVICE_NAME NO existe
+    ya (un deploy a un nombre existente lo SOBREESCRIBE — ver epa-safe-vibe B7)
+[ ] Si el deploy lo hace Claude/IA: SERVICE_NAME termina en `-vibe`
+[ ] Nunca desplegar en bdd-epa-digital (reservado a datos + Newton)
 
 SEGURIDAD
 [ ] No hay credenciales en el código ni en el Dockerfile
