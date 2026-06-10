@@ -226,7 +226,20 @@ CLUSTER BY campaign_id;
 {producto}-web              ← frontend / dashboard de producto
 {producto}-job              ← Cloud Run job programado
 {cliente}-{funcion}-svc     ← servicio para un cliente específico
+{nombre}-vibe               ← deploy hecho por Claude/IA (sufijo reservado, ver abajo)
 ```
+
+> ⚠️ **Proyecto destino:** los servicios vibecodeados van **solo a `epa-turing`**.
+> `bdd-epa-digital` está reservado para datos canónicos y la intranet **Newton**
+> (servicio `epa-dashboard`, legacy no conforme — debió ser `newton-web`, hoy protegido).
+> Nunca desplegar servicios nuevos en `bdd-epa-digital` ni `ga360-250517`.
+
+> 🤖 **Sufijo reservado `-vibe` para deploys de IA.** Todo servicio desplegado por un
+> agente/sesión de vibe-coding (Claude) lleva el sufijo `-vibe` (ej. `mi-demo-vibe`).
+> Humano = sin sufijo, IA = `*-vibe` → namespaces disjuntos: un deploy de IA **nunca**
+> puede sobrescribir un servicio humano/productivo. Es sufijo fijo (no hash) para no
+> proliferar servicios. Regla nacida del incidente Newton (2026-06-09); la enforce el
+> hook `epa-safe-vibe/hooks/guard-cloud-deploy.sh`.
 
 **Ejemplos correctos:**
 ```
@@ -243,6 +256,8 @@ github-actions-deployer     ← service account, no servicio (ver IAM)
 ✗ pitagoras_api             ← snake_case no aplica en Cloud Run
 ✗ PitagorasAPI              ← PascalCase no aplica
 ✗ api                       ← genérico
+✗ epa-dashboard             ← genérico: ya es Newton en bdd-epa-digital → colisión (incidente 2026-06-09)
+✗ dashboard / app / web     ← genéricos, colisionan entre productos
 ✗ test-deploy               ← nombres temporales no llegan a producción
 ✗ jose-test                 ← nunca usar nombres personales
 ```

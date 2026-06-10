@@ -14,11 +14,22 @@ description: >
 
 # EPA Safe Vibe — Guardrail de Seguridad
 
-Proyecto GCP: **epa-turing** (`projects/689827400521`)
+Proyecto GCP por defecto para vibecoding: **epa-turing** (`projects/689827400521`)
 Modo: **BLOQUEANTE** para malas prácticas · **CONSULTIVO** para arquitectura
+
+> **Alcance: TODOS los proyectos GCP de EPA**, no solo epa-turing. El guardrail
+> aplica igual en `epa-turing`, `bdd-epa-digital` (datos canónicos + intranet Newton)
+> y `ga360-250517` (Coppel). El incidente Newton (ver B7) ocurrió justo porque un
+> deploy fue a `bdd-epa-digital` y la regla "se sintió" fuera de alcance.
 
 Este skill protege la infraestructura compartida de EPA y previene los errores
 más costosos del vibecoding sin contexto institucional.
+
+> ⚙️ **Enforcement automático:** este plugin trae un hook PreToolUse
+> (`hooks/guard-cloud-deploy.sh`) que **bloquea de verdad** —sin depender de que el
+> modelo lea esta skill— cualquier `gcloud run deploy` / `gcloud builds submit` de
+> Claude que no apunte a `epa-turing` o cuyo servicio no lleve el sufijo `-vibe`
+> (ver B7). El texto de abajo es el respaldo conceptual del hook.
 
 ---
 
@@ -165,6 +176,38 @@ Lo que se bloquea es usarlo como backend de aplicaciones o ETLs.
 | Secretos | `.env` en el repo | Secret Manager |
 | Colas de trabajo | Polling en loop | Pub/Sub + Cloud Run |
 
+### 🔴 B7 — Deploy de Cloud Run sobre un servicio existente (overwrite silencioso)
+
+`gcloud run deploy <servicio>` es **create-or-update**: si ya existe un servicio con
+ese nombre, lo **sobrescribe sin avisar**. Lo mismo aplica a `gcloud builds submit`
+(que internamente despliega) y a crear triggers de Cloud Build.
+
+**Caso real que originó esta regla — incidente Newton (2026-06-09):**
+Un deploy automatizado del dashboard de analytics eligió el nombre genérico
+`epa-dashboard` en el proyecto `bdd-epa-digital` y **sobrescribió a Newton**, la
+intranet de EPA (`dashboard.epa.digital`) que llevaba >1 año corriendo con ese nombre.
+
+**El discriminador correcto es EXISTENCIA + NAMESPACE, no propiedad.** Como casi todo
+se despliega con la identidad compartida `analytics@epa.digital`, cualquier check de
+"¿es mío?" es inútil (todo se marca propio). Por eso:
+
+1. **Proyecto:** los servicios vibecodeados van SOLO a `epa-turing`. Nunca desplegar
+   servicios nuevos en `bdd-epa-digital` ni `ga360-250517`. Declarar `--project=epa-turing`
+   explícito (no depender de la config activa de gcloud).
+2. **Sufijo reservado de IA:** todo deploy hecho por Claude/IA usa un servicio terminado
+   en **`-vibe`** (ej. `mi-servicio-vibe`). Humano = sin sufijo, IA = `*-vibe` →
+   namespaces disjuntos, imposible pisar un servicio humano/productivo.
+3. **Verificar existencia antes de crear:** correr
+   `gcloud run services list --project=<destino> --region=us-central1` y confirmar que
+   el nombre **NO existe ya** (o que es el tuyo y quieres actualizarlo a propósito).
+4. **Identidad por persona:** para desplegar un producto curado con nombre limpio (sin
+   `-vibe`), hacerlo con la **identidad personal** de quien despliega (`gcloud auth login`
+   con su correo `@epa.digital`), NUNCA con `analytics@epa.digital`. Así el audit log
+   atribuye el deploy a una persona real.
+
+> El hook `hooks/guard-cloud-deploy.sh` ya bloquea (1) y (2) de forma automática.
+> (3) y (4) son responsabilidad del operador.
+
 ---
 
 ## ADVERTENCIAS — Consultivo (continúa pero avisa)
@@ -240,9 +283,12 @@ SEGURIDAD
 
 INFRAESTRUCTURA
 [ ] El naming sigue las convenciones de epa-naming
-[ ] No se modifican recursos protegidos (PitagorasUsers, PitagorasTokens)
+[ ] No se modifican recursos protegidos (ver references/protected-resources.md)
 [ ] Las queries a Firestore/BigQuery tienen límites definidos
-[ ] Se revisó qué recursos ya existen en epa-turing antes de crear nuevos
+[ ] Corrí `gcloud run services list --project=<destino>` y el nombre del servicio
+    NO existe ya (o es el mío y quiero actualizarlo a propósito) — ver B7
+[ ] Deploy de IA/Claude: proyecto = epa-turing + servicio termina en `-vibe`
+[ ] Deploy de producto curado (nombre limpio): con identidad personal, no analytics@epa.digital
 
 CÓDIGO
 [ ] Hay manejo de errores en todas las operaciones de infraestructura
