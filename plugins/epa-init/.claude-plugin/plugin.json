@@ -1,0 +1,13 @@
+{
+  "name": "epa-init",
+  "description": "Inicializa proyectos nuevos de EPA Digital: CLAUDE.md, settings con Tokyo MCP + BigQuery en epa-turing, cloudbuild.yaml, .env.template y checklist GCP.",
+  "version": "1.0.0",
+  "author": {
+    "name": "EPA Digital — Datos e IA",
+    "email": "datos@epa.digital"
+  },
+  "homepage": "https://github.com/epa-digital/claude-plugins",
+  "repository": "https://github.com/epa-digital/claude-plugins",
+  "license": "MIT",
+  "keywords": ["init", "scaffold", "gcp", "cloud-run", "epa-turing", "bigquery"]
+}
