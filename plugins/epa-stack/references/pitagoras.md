@@ -49,7 +49,7 @@ e IA antes de buscar acceso directo a su API.
 
 ```
 Vibecoding interactivo (Claude Code, Cursor, Cowork)
-    └── MCP de Pitágoras (sin escribir código)
+    └── MCP de Pitágoras — nombre de producto: Tokyo (sin escribir código)
 
 App o servicio en runtime
     └── API REST con httpx / fetch + token bearer
@@ -299,7 +299,12 @@ export class PitagorasClient {
 
 ## MCP de Pitágoras — uso en vibecoding
 
-Si Claude Code o Cursor tienen el MCP de Pitágoras configurado en
+Este MCP tiene nombre de producto **Tokyo** — mismo backend que la API REST
+de Pitágoras, pero pensado únicamente para uso interactivo desde un LLM. No
+está diseñado para ETL ni llamadas programáticas: para eso, usar siempre la
+API REST documentada arriba.
+
+Si Claude Code o Cursor tienen el MCP de Pitágoras (Tokyo) configurado en
 `https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp` (con `/mcp` al final, es
 obligatorio), basta con pedir en lenguaje natural:
 

@@ -42,7 +42,11 @@ Datos e IA antes de buscar acceso directo a su API.
 
 ---
 
-## Opción 1 — MCP de Pitágoras (recomendado para vibecoding)
+## Opción 1 — MCP de Pitágoras / Tokyo (recomendado para vibecoding)
+
+Este MCP tiene nombre de producto **Tokyo** — mismo backend que la API REST,
+pero solo para uso interactivo. No sirve para ETL ni llamadas programáticas
+(ver Opción 2 para eso).
 
 Si Claude Code o Cursor tienen el MCP configurado contra
 `https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp` (con `/mcp` al final),

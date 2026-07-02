@@ -2,10 +2,10 @@
 name: epa-init
 description: >
   Inicializa un proyecto nuevo de EPA Digital con toda la infraestructura base:
-  CLAUDE.md con contexto EPA, .claude/settings.json con Tokyo MCP + BigQuery +
-  plugins EPA, cloudbuild.yaml para Cloud Run en epa-turing, .env.local.template,
-  y checklist de pasos manuales. Usar cuando el usuario quiera arrancar un
-  proyecto nuevo bajo los estándares EPA.
+  CLAUDE.md con contexto EPA, .claude/settings.json con MCP Tokyo + BigQuery +
+  plugins EPA, .github/workflows/deploy.yml para Cloud Run en epa-turing,
+  .env.local.template, y checklist de pasos manuales. Usar cuando el usuario
+  quiera arrancar un proyecto nuevo bajo los estándares EPA.
 ---
 
 # Skill: epa-init
@@ -25,8 +25,8 @@ Haz estas preguntas en UN SOLO MENSAJE (no una por una):
    - A) Next.js (React + App Router)
    - B) FastAPI (Python)
    - C) Otro (especificar)
-3. **¿Tiene autenticación de usuarios vía Supabase?** (sí / no)
-4. **¿Consume datos de plataformas de medios vía Tokyo?** (Google Ads, Meta, TikTok — sí / no)
+3. **¿Tiene autenticación de usuarios vía Firebase Authentication?** (sí / no)
+4. **¿Tu app necesita consumir datos de plataformas de medios en tiempo de ejecución (backend/ETL)?** (Google Ads, Meta, TikTok, etc. — sí / no). El MCP de Tokyo se configura siempre para uso interactivo del desarrollador, sin importar esta respuesta.
 5. **¿Tendrá dominio custom?** (e.g., `presupuestos.epa.digital`) — sí / no, y cuál si aplica
 
 Espera las respuestas antes de generar cualquier archivo.
@@ -54,7 +54,7 @@ Aplican todas las reglas del [contexto organizacional EPA](https://github.com/EP
 \`\`\`
 {STACK_COMPLETO}
 GCP:        epa-turing (Project: 689827400521, Región: us-central1)
-BigQuery:   epa-turing — dataset: {SLUG_SNAKE}
+BigQuery:   epa-turing — dataset: {SLUG_SNAKE}_raw
 Cloud Run:  {SLUG}-web (servicio en epa-turing)
 Secretos:   Secret Manager en epa-turing
 \`\`\`
@@ -65,7 +65,7 @@ Secretos:   Secret Manager en epa-turing
 
 \`\`\`
 Proyecto:  epa-turing
-Dataset:   {SLUG_SNAKE}
+Dataset:   {SLUG_SNAKE}_raw
 Tablas:    (definir según el modelo de datos del proyecto)
 \`\`\`
 
@@ -96,7 +96,7 @@ Todas las queries deben incluir filtros de fechas y un LIMIT preventivo.
 
 - **Design system:** IBM Plex Sans/Mono, EPA Blue `#003AD6`.
 - **BigQuery:** Siempre filtros de fecha y LIMIT. Sin `SELECT *` sin restricciones.
-- **Tokyo:** Datos de medios solo vía Tokyo MCP o REST API. Nunca directo a plataformas.
+- **Datos de medios:** vibecoding interactivo → MCP de Tokyo (ya configurado en `.claude/settings.json`). Código en runtime/ETL → API REST de Pitágoras (`EPA_PITAGORAS_USER_EMAIL`). Nunca directo a las plataformas.
 - **Credenciales:** En `.env.local` (no commiteado). Producción en Secret Manager de epa-turing.
 - **Naming:** Seguir `epa-naming` para cualquier recurso nuevo.
 - **Operaciones destructivas:** Siempre confirmar con el usuario antes de DELETE / DROP / TRUNCATE.
@@ -161,107 +161,101 @@ Todas las queries deben incluir filtros de fechas y un LIMIT preventivo.
 
 ---
 
-### Archivo 3: `cloudbuild.yaml`
+### Archivo 3: `.github/workflows/deploy.yml`
 
-Adaptar según stack (Next.js vs FastAPI):
+Un solo workflow sirve para Next.js y FastAPI — solo cambia `SERVICE_NAME`
+(sufijo `-web` o `-api`) y el `Dockerfile` del proyecto. Sigue el mismo stack
+canónico documentado en el plugin `epa-cicd` (GitHub Actions + Cloud Run,
+nunca Cloud Build) — ahí está el detalle completo: cómo crear `GCP_SA_KEY`
+una sola vez, troubleshooting y QA local antes de `main`.
 
-**Next.js:**
 ```yaml
-# Cloud Build → Cloud Run en epa-turing
-# Servicio: {SLUG}-web
-# Proyecto: epa-turing
+name: Deploy a Cloud Run
 
-steps:
-  - name: gcr.io/cloud-builders/docker
-    id: build
-    args:
-      - build
-      - -t=$_IMAGE:$_TAG
-      - -f=Dockerfile
-      - .
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 
-  - name: gcr.io/cloud-builders/docker
-    id: push
-    args: [push, $_IMAGE:$_TAG]
-    waitFor: [build]
+env:
+  PROJECT_ID: epa-turing
+  REGION: us-central1
+  REGISTRY: us-central1-docker.pkg.dev
+  REPOSITORY: epa-containers
+  SERVICE_NAME: "{SLUG}-web"   # "{SLUG}-api" si el stack es FastAPI
+  PORT: 8080
 
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: deploy
-    entrypoint: gcloud
-    args:
-      - run
-      - deploy
-      - {SLUG}-web
-      - --image=$_IMAGE:$_TAG
-      - --region=us-central1
-      - --project=epa-turing
-      - --platform=managed
-      - --allow-unauthenticated
-      - --port=3000
-      - --memory=512Mi
-      - --cpu=1
-      - --min-instances=0
-      - --max-instances=10
-      - --service-account={SLUG}-runtime@epa-turing.iam.gserviceaccount.com
-      - --set-secrets={SECRETOS_NECESARIOS}
-    waitFor: [push]
+jobs:
+  deploy:
+    name: Build y Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
-substitutions:
-  _IMAGE: us-central1-docker.pkg.dev/epa-turing/{SLUG}/{SLUG}-web
-  _TAG: latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
 
-options:
-  logging: CLOUD_LOGGING_ONLY
+      - name: Autenticar en GCP
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configurar Docker para Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
+
+      - name: Build de la imagen Docker
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest \
+            .
+
+      - name: Push de la imagen a Artifact Registry
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest
+
+      - name: Guard — el servicio no debe existir ya (primer deploy)
+        if: ${{ vars.FIRST_DEPLOY == 'true' }}
+        run: |
+          if gcloud run services describe ${{ env.SERVICE_NAME }} \
+               --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
+            echo "🔴 El servicio '${{ env.SERVICE_NAME }}' YA existe en ${{ env.PROJECT_ID }}."
+            echo "   Un deploy lo SOBREESCRIBIRÍA. Elige otro nombre (ver epa-naming / epa-safe-vibe B7)."
+            exit 1
+          fi
+
+      - name: Deploy a Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --port=${{ env.PORT }} \
+            --memory=512Mi \
+            --cpu=1 \
+            --min-instances=0 \
+            --max-instances=10 \
+            --service-account={SLUG}-runtime@epa-turing.iam.gserviceaccount.com \
+            --set-secrets={SECRETOS_NECESARIOS}
+
+      - name: Mostrar URL del servicio
+        run: |
+          gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --project=${{ env.PROJECT_ID }} \
+            --format='value(status.url)'
 ```
 
-**FastAPI:**
-```yaml
-# Cloud Build → Cloud Run en epa-turing
-# Servicio: {SLUG}-api
-# Proyecto: epa-turing
-
-steps:
-  - name: gcr.io/cloud-builders/docker
-    id: build
-    args:
-      - build
-      - -t=$_IMAGE:$_TAG
-      - -f=Dockerfile
-      - .
-
-  - name: gcr.io/cloud-builders/docker
-    id: push
-    args: [push, $_IMAGE:$_TAG]
-    waitFor: [build]
-
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: deploy
-    entrypoint: gcloud
-    args:
-      - run
-      - deploy
-      - {SLUG}-api
-      - --image=$_IMAGE:$_TAG
-      - --region=us-central1
-      - --project=epa-turing
-      - --platform=managed
-      - --allow-unauthenticated
-      - --port=8000
-      - --memory=512Mi
-      - --cpu=1
-      - --min-instances=0
-      - --max-instances=10
-      - --service-account={SLUG}-runtime@epa-turing.iam.gserviceaccount.com
-      - --set-secrets={SECRETOS_NECESARIOS}
-    waitFor: [push]
-
-substitutions:
-  _IMAGE: us-central1-docker.pkg.dev/epa-turing/{SLUG}/{SLUG}-api
-  _TAG: latest
-
-options:
-  logging: CLOUD_LOGGING_ONLY
-```
+> Nota para el usuario: si el repo todavía no tiene el secret `GCP_SA_KEY`
+> configurado, seguir el plugin `epa-cicd` (tres opciones, incluida pedirle a
+> Datos e IA que lo haga por ti). El repositorio `epa-containers` en Artifact
+> Registry es compartido por todos los servicios de EPA — si no existe,
+> crearlo una sola vez (ver `epa-cicd`), no crear uno nuevo por proyecto.
 
 ---
 
@@ -273,17 +267,22 @@ options:
 # Descargar desde: IAM → Service Accounts → {slug}-runtime@epa-turing
 GOOGLE_APPLICATION_CREDENTIALS=./credentials/epa-turing-sa.json
 
-# ─── Tokyo API ───────────────────────────────────────────────────────────────
-# Email del usuario con acceso a Pitagoras (Tokyo backend)
-TOKYO_EMAIL=analytics@epa.digital
-# URL base del API (no cambiar)
-TOKYO_API_URL=https://api.tokyo.epa.digital/api/v1
+# ─── Pitágoras (datos de medios en runtime — Google Ads, Meta, TikTok, etc.) ─
+# Email autorizado para obtener token vía POST /api/v1/customers.
+# Ver plugins/epa-stack/references/pitagoras.md para el cliente completo.
+# Para vibecoding interactivo (explorar datos durante desarrollo) usa el MCP
+# Tokyo ya configurado en .claude/settings.json — no necesitas esta variable
+# para eso, Tokyo no está pensado para llamadas de runtime/ETL.
+EPA_PITAGORAS_USER_EMAIL=analytics@epa.digital
 
-# ─── Supabase (si aplica) ────────────────────────────────────────────────────
-# Obtener desde: app.supabase.com → Project Settings → API
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+# ─── Firebase Authentication (si aplica) ─────────────────────────────────────
+# Firebase Console → Project Settings → General → Tus apps (Web app)
+# El proyecto de Firebase debe ser el mismo proyecto GCP (epa-turing)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=epa-turing.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=epa-turing
+# La verificación de tokens en el backend reusa GOOGLE_APPLICATION_CREDENTIALS
+# de arriba (Firebase Admin SDK) — no se necesita un secret nuevo.
 
 # ─── Anthropic (si el proyecto usa Claude) ────────────────────────────────────
 ANTHROPIC_API_KEY=
@@ -322,11 +321,10 @@ Al terminar de generar los archivos, mostrar este checklist:
 
 GCP — epa-turing (hacer UNA VEZ por proyecto):
   [ ] Crear dataset en BigQuery:
-        bq mk --project_id=epa-turing --dataset {SLUG_SNAKE}
-  [ ] Crear Artifact Registry repo:
-        gcloud artifacts repositories create {SLUG} \
-          --repository-format=docker --location=us-central1 \
-          --project=epa-turing
+        bq mk --project_id=epa-turing --dataset {SLUG_SNAKE}_raw
+  [ ] Verificar que el Artifact Registry compartido "epa-containers" existe
+      (si no, crearlo una sola vez — ver plugin epa-cicd, no crear uno nuevo
+      por proyecto)
   [ ] Crear Service Account de runtime:
         gcloud iam service-accounts create {SLUG}-runtime \
           --project=epa-turing \
@@ -341,20 +339,26 @@ GCP — epa-turing (hacer UNA VEZ por proyecto):
 
 Secret Manager — subir secretos antes del primer deploy:
   [ ] GOOGLE_APPLICATION_CREDENTIALS_JSON  (contenido del SA JSON, no la ruta)
-  [ ] TOKYO_EMAIL
+  [ ] EPA_PITAGORAS_USER_EMAIL  (si consume datos de medios en runtime)
   [ ] EPA_ADMIN_TOKEN
   [ ] ANTHROPIC_API_KEY  (si aplica)
-  [ ] SUPABASE_SERVICE_ROLE_KEY  (si aplica)
   Comando: gcloud secrets create NOMBRE --project=epa-turing --data-file=-
+  (Firebase Authentication no necesita un secret nuevo: el backend reusa
+  GOOGLE_APPLICATION_CREDENTIALS_JSON vía Firebase Admin SDK, y las variables
+  NEXT_PUBLIC_FIREBASE_* no son secretas.)
 
-Cloud Build:
-  [ ] Conectar repo de GitHub a Cloud Build en epa-turing
-  [ ] Crear trigger en master/main → cloudbuild.yaml
-  [ ] Primer deploy manual para verificar
+GitHub Actions (una sola vez para todo epa-turing, ver plugin epa-cicd si falta):
+  [ ] Repo con el secret GCP_SA_KEY configurado
+  [ ] Archivo .github/workflows/deploy.yml existe con SERVICE_NAME correcto
+  [ ] Push a main → GitHub Actions construye y despliega automático
+  [ ] Verificar que {SLUG}-web / {SLUG}-api responde en la URL de Cloud Run
 
-[SI SUPABASE]
-  [ ] Crear tabla user_clients en Supabase para controlar acceso por usuario
-  [ ] Dar acceso a los usuarios iniciales en user_clients
+[SI FIREBASE AUTH]
+  [ ] Habilitar Firebase Authentication en el proyecto epa-turing
+      (Firebase Console → Authentication → Sign-in method)
+  [ ] Registrar la Web App en Firebase Console y copiar la config a las
+      variables NEXT_PUBLIC_FIREBASE_* del .env.local
+  [ ] (Opcional) Colección Firestore para mapear UID → permisos/cliente
 
 [SI DOMINIO CUSTOM]
   [ ] Mapear dominio en Cloud Run:
@@ -376,8 +380,10 @@ Al terminar:
 ## Notas del skill
 
 - Siempre usar `epa-turing` como proyecto GCP (no `bdd-epa-digital` para proyectos nuevos)
-- El dataset de BigQuery en `epa-turing` sigue naming `snake_case` (e.g., `turing_rentabilidad`)
+- El dataset de BigQuery en `epa-turing` sigue naming `{cliente_o_producto}_{tipo}` (default `{slug_snake}_raw` — nunca solo el slug pelado, ver `epa-naming`)
 - El servicio de Cloud Run sigue naming `{slug}-web` (frontend) o `{slug}-api` (backend)
 - El SA de runtime sigue naming `{slug}-runtime@epa-turing.iam.gserviceaccount.com`
-- El repo de Artifact Registry sigue naming `{slug}` (kebab-case)
+- El repo de Artifact Registry es el compartido `epa-containers` (no uno nuevo por proyecto)
+- Datos de medios: MCP de Tokyo es solo para vibecoding interactivo; el código en runtime (ETL, backend) siempre usa la API REST de Pitágoras — ver `epa-stack/references/pitagoras.md`
+- Autenticación de usuarios: Firebase Authentication es el patrón GCP-nativo — ver `epa-stack/references/firebase-auth.md`
 - Nunca commitear `.env.local` ni archivos de credentials JSON

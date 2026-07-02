@@ -94,6 +94,12 @@ MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
              auth: Google OAuth (cuenta @epa.digital)
 ```
 
+> El MCP Server tiene nombre de producto **Tokyo** — mismo backend que la API
+> REST, pero pensado únicamente para uso interactivo desde un LLM (Claude
+> Code, Cursor). Tokyo NO está diseñado para ETL ni llamadas programáticas:
+> cualquier código en runtime (apps, backends, pipelines) debe usar siempre la
+> API REST de Pitágoras, nunca Tokyo.
+
 Acceder directo a las APIs de plataforma:
 - Duplica código de auth y paginación entre productos.
 - Expone tokens en repos.

@@ -97,12 +97,18 @@ y seguir el árbol de decisión correspondiente.
 │   └── ¿Procesamiento masivo de BigQuery a BigQuery?
 │       └── → BigQuery scheduled queries o dbt
 │
-└── 7. NECESITO ENVIAR ALERTAS O NOTIFICACIONES
-    ├── ¿Alertas de performance de campañas?
-    │   └── → n8n + Slack webhook o email
-    │
-    └── ¿Alertas de sistema o infraestructura?
-        └── → Cloud Monitoring + Alerting
+├── 7. NECESITO ENVIAR ALERTAS O NOTIFICACIONES
+│   ├── ¿Alertas de performance de campañas?
+│   │   └── → n8n + Slack webhook o email
+│   │
+│   └── ¿Alertas de sistema o infraestructura?
+│       └── → Cloud Monitoring + Alerting
+│
+└── 8. NECESITO AUTENTICAR USUARIOS
+    └── → Firebase Authentication (mismo proyecto GCP epa-turing)
+        El backend verifica tokens reusando el mismo service account
+        ya usado para BigQuery/Firestore — sin secret nuevo.
+        Ver references/firebase-auth.md
 ```
 
 ---
