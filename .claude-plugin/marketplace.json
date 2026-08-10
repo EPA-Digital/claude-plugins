@@ -6,7 +6,7 @@
     "email": "datos@epa.digital"
   },
   "metadata": {
-    "version": "1.2.1"
+    "version": "1.3.0"
   },
   "plugins": [
     {
@@ -43,6 +43,13 @@
       "description": "CI/CD para proyectos EPA: GitHub Actions + Cloud Run en epa-turing. Templates listos, flujo de deploy automatizado y guía paso a paso para usuarios sin experiencia en DevOps.",
       "category": "devops",
       "keywords": ["cicd", "github-actions", "cloud-run", "deploy", "docker"]
+    },
+    {
+      "name": "epa-dashboards",
+      "source": "./plugins/epa-dashboards",
+      "description": "Capa de vibecoding para dashboards EPA: stack de frontend, contexto de datos BigQuery por cliente, planificación, QA de diseño y revisión de seguridad. Requiere los plugins epa-naming, epa-safe-vibe, epa-stack, epa-design y epa-cicd.",
+      "category": "dashboards",
+      "keywords": ["dashboards", "nextjs", "bigquery", "recharts", "frontend"]
     }
   ]
 }

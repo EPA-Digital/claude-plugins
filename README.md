@@ -26,10 +26,12 @@ debe verse la UI y cómo se sube algo a producción.
 | **`epa-stack`** | Te dice qué stack usar para cada caso (FastAPI vs Hono, Cloud Run vs Cloud Run job, BigQuery vs Firestore). Dashboards: **Next.js 15 + Tailwind**. | Cuando dices "voy a construir X", "qué uso para Y", "cómo hago un dashboard de Z". |
 | **`epa-design`** | Tiene los tokens, componentes y guías de copy del design system de EPA: paleta `#003AD6`, tipografía IBM Plex, copy en español sentence-case, separadores correctos. | Cuando construyes UI, escribes CSS/Tailwind/JSX, haces un slide o un landing. |
 | **`epa-cicd`** | Te entrega templates listos para subir tu app a Cloud Run usando GitHub Actions, con guía paso a paso. | Cuando dices "deploy", "subir a producción", "Cloud Run", "CI/CD". |
+| **`epa-dashboards`** | Capa de vibecoding para dashboards: stack de frontend cerrado (Next.js + pnpm + TS estricto), convenciones de los datasets `{cliente}_reporting` en BigQuery, comandos para planear/criticar y un agente de revisión de seguridad. | Cuando construyes o modificas un dashboard, escribes SQL contra BigQuery de un cliente, o corres `/plan-dashboard`, `/client-context`, `/critique-epa`. |
 
-Todos son **skills auto-invocados**: no tienes que escribir `/epa-naming` ni
-nada parecido. Claude detecta el contexto y los activa solo. Tu trabajo es
-solo tenerlos instalados.
+Todos los skills son **auto-invocados**: no tienes que escribir `/epa-naming`
+ni nada parecido. Claude detecta el contexto y los activa solo (los 3
+comandos y el agente de `epa-dashboards` sí se invocan explícitamente — ver
+su sección más abajo). Tu trabajo es solo tenerlos instalados.
 
 ---
 
@@ -96,7 +98,7 @@ claude plugin marketplace add EPA-Digital/claude-plugins
 Esto le dice a tu Claude Code: "el catálogo oficial de EPA está en este repo
 de GitHub". A partir de aquí puedes instalar cualquiera de nuestros plugins.
 
-### 6. Instala los 5 plugins
+### 6. Instala los 6 plugins
 
 Pégalos uno por uno (o todos juntos en un mismo bloque — funciona igual):
 
@@ -106,9 +108,14 @@ claude plugin install epa-safe-vibe@epa-plugins
 claude plugin install epa-stack@epa-plugins
 claude plugin install epa-design@epa-plugins
 claude plugin install epa-cicd@epa-plugins
+claude plugin install epa-dashboards@epa-plugins
 ```
 
 Cada uno tarda 2–5 segundos. Listo.
+
+> Alternativa: sigue `docs/onboarding-vibecoding.md` para el checklist
+> completo de Día 0, incluidos los pasos que tramita IT (grupo IAM
+> `grp-vibecoding@epa.digital`) antes de este paso.
 
 ### 7. Verifica que todo quedó instalado
 
@@ -117,7 +124,7 @@ claude plugin marketplace list
 ```
 
 Deberías ver `epa-plugins` en la lista. Para confirmar plugins activos abre
-Claude Code y escribe `/plugin` — verás los 5 con check verde.
+Claude Code y escribe `/plugin` — verás los 6 con check verde.
 
 ---
 
@@ -211,12 +218,25 @@ claude-plugins/
 │   │       ├── tokens.md
 │   │       ├── components.md
 │   │       └── copy.md
-│   └── epa-cicd/
+│   ├── epa-cicd/
+│   │   ├── .claude-plugin/plugin.json
+│   │   ├── skills/epa-cicd/SKILL.md
+│   │   └── references/
+│   │       ├── dockerfile-patterns.md
+│   │       └── cloud-run-config.md
+│   └── epa-dashboards/
 │       ├── .claude-plugin/plugin.json
-│       ├── skills/epa-cicd/SKILL.md
-│       └── references/
-│           ├── dockerfile-patterns.md
-│           └── cloud-run-config.md
+│       ├── skills/
+│       │   ├── epa-frontend/
+│       │   │   ├── SKILL.md
+│       │   │   └── references/{stack,tsconfig-eslint,anti-stack}.md
+│       │   └── epa-bq/
+│       │       ├── SKILL.md
+│       │       └── references/{schema-google-transfer,schema-social,query-recipes}.md
+│       ├── commands/{plan-dashboard,client-context,critique-epa}.md
+│       └── agents/security-reviewer.md
+├── docs/
+│   └── onboarding-vibecoding.md
 └── .gitignore
 ```
 
@@ -238,6 +258,7 @@ Abre Claude Code en cualquier folder y escribe estos comandos uno por uno
 /plugin install epa-stack@epa-plugins
 /plugin install epa-design@epa-plugins
 /plugin install epa-cicd@epa-plugins
+/plugin install epa-dashboards@epa-plugins
 ```
 
 ### Opción C — Auto-instalación desde un repo EPA
@@ -257,10 +278,39 @@ pregunta si quieres instalarlo:
     "epa-safe-vibe@epa-plugins": true,
     "epa-stack@epa-plugins": true,
     "epa-design@epa-plugins": true,
-    "epa-cicd@epa-plugins": true
+    "epa-cicd@epa-plugins": true,
+    "epa-dashboards@epa-plugins": true
   }
 }
 ```
+
+---
+
+## Para repos de dashboards
+
+Si el repo que estás iniciando es un dashboard (no un producto interno
+genérico), usa este `settings.json` — es el mismo de la Opción C pero con
+`epa-dashboards` ya habilitado desde el arranque:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "epa-plugins": { "source": { "source": "github", "repo": "EPA-Digital/claude-plugins" } }
+  },
+  "enabledPlugins": {
+    "epa-naming@epa-plugins": true,
+    "epa-safe-vibe@epa-plugins": true,
+    "epa-stack@epa-plugins": true,
+    "epa-design@epa-plugins": true,
+    "epa-cicd@epa-plugins": true,
+    "epa-dashboards@epa-plugins": true
+  }
+}
+```
+
+Este snippet queda documentado aquí para el futuro template
+`create-epa-dashboard` (Etapa 3 de la plataforma de dashboards, todavía no
+existe) — mientras tanto, pégalo a mano en un dashboard nuevo.
 
 ---
 

@@ -12,6 +12,7 @@
     "epa-safe-vibe@epa-plugins": true,
     "epa-stack@epa-plugins": true,
     "epa-design@epa-plugins": true,
-    "epa-cicd@epa-plugins": true
+    "epa-cicd@epa-plugins": true,
+    "epa-dashboards@epa-plugins": true
   }
 }
