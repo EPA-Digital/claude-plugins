@@ -38,9 +38,13 @@ Región default:  us-central1
 Excepciones notables:
 
 ```
-bdd-epa-digital      ← BigQuery canónico de la agencia (dataset epa_agency_reports)
-                       account_metrics_daily, paid_media_metrics
-                       — fuente de verdad para reporting cross-cliente.
+bdd-epa-digital      ← BigQuery canónico de la agencia — un dataset granular
+                       por cliente: {cliente}_reporting (medios pagados +
+                       analytics, vistas por plataforma). Resolver el nombre
+                       exacto por lookup en INFORMATION_SCHEMA.SCHEMATA, no
+                       asumir el sufijo. Fuente de verdad para dashboards.
+                       DEPRECADO: dataset epa_agency_reports (cross-cliente
+                       consolidado) — ya no se usa.
 
 ga360-250517         ← BigQuery exclusivo de Coppel (dataset Epa_dataset)
                        Tablas PMBF_*, vienen desde Domo.
@@ -57,8 +61,10 @@ convenciones de naming, IAM y datasets, no por proyectos GCP separados.
 ```
 Compute:         Cloud Run (servicios) + Cloud Run Jobs (batch) + Cloud Scheduler
 Datos analíticos: BigQuery
-                  - Canónico cross-cliente: `bdd-epa-digital.epa_agency_reports`
-                    (account_metrics_daily, paid_media_metrics)
+                  - Canónico por cliente: `bdd-epa-digital.{cliente}_reporting`
+                    (medios pagados + analytics, vistas por plataforma)
+                  - Tablas del ETL centralizado (en construcción):
+                    `epa-turing.{cliente}_etl.{tabla}`
                   - Ad-hoc por producto/cliente: `epa-turing.{cliente}_{tipo}`
                   - Excepción Coppel (resultados Domo): `ga360-250517.Epa_dataset`
 Documentos / estado: Firestore Native (colecciones {Producto}{Entidad})
@@ -82,25 +88,35 @@ Detalles completos: ver el plugin `epa-stack`.
 
 **Pitágoras** es la capa de integración centralizada para datos de medios y
 analytics. Soporta 8 providers hoy: **Google Ads, Meta (Facebook + Instagram),
-Universal Analytics, GA4, Bing, TikTok, LinkedIn y DV360**. Toda app,
-dashboard, ETL o reporte que necesite datos de cualquiera de estos providers
-DEBE pasar por Pitágoras.
+Universal Analytics, GA4, Bing, TikTok, LinkedIn y DV360**.
 
-Endpoints (públicos, requieren auth):
+**Acceso directo a Pitágoras DEPRECADO para apps, dashboards, reportes y
+vibecoding en general.** El único consumidor de la API REST de Pitágoras es el
+**ETL centralizado** (en construcción, workstream del área de Datos e IA).
+Todo lo demás lee los datos ya materializados en BigQuery
+(`bdd-epa-digital.{cliente}_reporting`) — nunca llama a Pitágoras directo.
+
 ```
 API REST:    https://pitagoras-api-229508468478.us-central1.run.app
              auth: token bearer vía POST /api/v1/customers
+             Uso: EXCLUSIVO del ETL centralizado.
 MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
-             auth: Google OAuth (cuenta @epa.digital)
+             DEPRECADO — nombre de producto Tokyo. No usar, ni para
+             vibecoding interactivo ni para runtime.
 ```
 
-Acceder directo a las APIs de plataforma:
+Acceder directo a las APIs de plataforma (Meta, Google Ads, etc., sin pasar
+por Pitágoras):
 - Duplica código de auth y paginación entre productos.
 - Expone tokens en repos.
 - Rompe el historial centralizado de datos.
 - Descarga el control de rate-limits a cada servicio.
 
-Cómo usarlo: ver `pitagoras.md` en `epa-stack/references/`.
+Si el dato que necesitas no está en `{cliente}_reporting`, escala a
+datos@epa.digital — no lo resuelvas llamando a Pitágoras tú mismo.
+
+Detalle técnico (uso interno del ETL): ver `pitagoras.md` en
+`epa-stack/references/`.
 
 ---
 

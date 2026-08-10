@@ -1,7 +1,7 @@
 {
   "name": "epa-stack",
   "description": "Stack canónico de EPA Digital: árbol de decisión de arquitectura, patrones aprobados por caso de uso y boilerplate para Cloud Run con Python (FastAPI) y TypeScript (Hono).",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": {
     "name": "EPA Digital — Datos e IA",
     "email": "datos@epa.digital"

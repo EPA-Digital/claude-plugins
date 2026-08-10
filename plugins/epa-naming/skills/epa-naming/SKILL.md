@@ -130,19 +130,23 @@ CoppelCampaigns/{campaignId}/Audiences
 
 ```
 bdd-epa-digital     ← dataset canónico de la agencia. Project separado.
-                      Dataset principal: epa_agency_reports
-                      Vistas: account_metrics_daily, paid_media_metrics
-                      (cost, sessions, transactions, revenue por client_name+medios+date)
+                      Un dataset por cliente: {cliente}_reporting
+                      (medios pagados + analytics, vistas por plataforma).
+                      Resolver el nombre exacto por lookup en
+                      INFORMATION_SCHEMA.SCHEMATA, no asumir el sufijo.
+                      DEPRECADO: dataset epa_agency_reports.
 
-epa-turing          ← datasets ad-hoc por producto o cliente.
-                      RAW desde Pitágoras, staging, marts específicos.
+epa-turing          ← datasets ad-hoc por producto o cliente, y las tablas
+                      del ETL centralizado en construcción ({cliente}_etl).
+                      Staging, marts específicos.
 
 ga360-250517        ← excepción Coppel: dataset Epa_dataset con tablas PMBF_*.
                       Resultados desde Domo. NO usar salvo necesidad explícita.
 ```
 
 Antes de crear un dataset nuevo, validar si la métrica que necesitas ya está
-en `bdd-epa-digital.epa_agency_reports`. Si sí, no dupliques pipeline.
+en `bdd-epa-digital.{cliente}_reporting` o si es candidata al ETL
+centralizado. Si sí, no dupliques pipeline.
 
 ### Datasets nuevos en `epa-turing`
 
@@ -170,7 +174,7 @@ Ahorro" se normalizan a `farmacias_ahorro` (sin artículos, snake_case). Validar
 con el área de Datos e IA al onboardear cliente nuevo.
 
 > **No crear** `*_performance` para datos que ya viven en
-> `bdd-epa-digital.epa_agency_reports`. La duplicación rompe consistencia y
+> `bdd-epa-digital.{cliente}_reporting`. La duplicación rompe consistencia y
 > dispara costo doble de ingesta.
 
 **Ejemplos incorrectos:**

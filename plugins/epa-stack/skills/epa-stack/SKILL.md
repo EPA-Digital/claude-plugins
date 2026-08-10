@@ -27,16 +27,29 @@ y seguir el árbol de decisión correspondiente.
 │
 ├── 1. NECESITO DATOS DE MEDIOS O ANALYTICS
 │   │   (Google Ads, Meta, Universal Analytics, GA4, Bing, TikTok, LinkedIn, DV360)
-│   └── → Pitágoras API o MCP — nunca directo a la plataforma
-│       └── Ver references/pitagoras.md
-│       └── Para presupuestos por cuenta: endpoint /budgets (mismo provider list)
+│   ├── ¿El dato que necesitas ya está en `bdd-epa-digital.{cliente}_reporting`?
+│   │   └── → Léelo de ahí directo. No llames a ninguna API.
+│   │
+│   └── ¿No está — necesitas un extract nuevo o un grano distinto?
+│       └── → Escala a datos@epa.digital (ETL centralizado, en construcción).
+│           DEPRECADO: acceso directo a Pitágoras (API REST o MCP/Tokyo)
+│           desde apps, dashboards o vibecoding — nunca lo llames tú.
+│           Ver references/pitagoras.md (uso exclusivo del ETL centralizado).
 │
 ├── 2. NECESITO LEER / GUARDAR DATOS
-│   ├── ¿Son métricas de performance cross-cliente (cost, sessions, transactions, revenue)?
-│   │   └── → BigQuery: `bdd-epa-digital.epa_agency_reports`
-│   │       Vistas canónicas: account_metrics_daily (orgánico+paid),
-│   │       paid_media_metrics (paid + campaign_type).
-│   │       NO duplicar este pipeline en epa-turing.
+│   ├── ¿Necesitas métricas de medios/analytics de un cliente (campañas, sesiones, revenue)?
+│   │   └── → BigQuery: `bdd-epa-digital.{cliente}_reporting`
+│   │       Granular por plataforma (Google Ads, GA4, Meta, TikTok, Bing, DV360...).
+│   │       Resolver el dataset por lookup — no todos los clientes usan el
+│   │       sufijo `_reporting` — nunca asumirlo:
+│   │         SELECT schema_name FROM `bdd-epa-digital`.INFORMATION_SCHEMA.SCHEMATA
+│   │         WHERE LOWER(schema_name) LIKE '%{cliente}%'
+│   │       DEPRECADO: `bdd-epa-digital.epa_agency_reports` (dataset cross-
+│   │       cliente consolidado). Hoy no hay un dataset agregador vigente —
+│   │       si necesitas un rollup entre varios clientes, escala a Datos e IA.
+│   │
+│   ├── ¿Necesitas tablas que produce el ETL centralizado (en construcción)?
+│   │   └── → BigQuery: `epa-turing.{cliente}_etl.{tabla}` (particionadas por date)
 │   │
 │   ├── ¿Coppel y necesitas resultados de campaña detallados que NO están en
 │   │     bdd-epa-digital (transacciones por SKU, building blocks de funnel)?
@@ -97,12 +110,18 @@ y seguir el árbol de decisión correspondiente.
 │   └── ¿Procesamiento masivo de BigQuery a BigQuery?
 │       └── → BigQuery scheduled queries o dbt
 │
-└── 7. NECESITO ENVIAR ALERTAS O NOTIFICACIONES
-    ├── ¿Alertas de performance de campañas?
-    │   └── → n8n + Slack webhook o email
-    │
-    └── ¿Alertas de sistema o infraestructura?
-        └── → Cloud Monitoring + Alerting
+├── 7. NECESITO ENVIAR ALERTAS O NOTIFICACIONES
+│   ├── ¿Alertas de performance de campañas?
+│   │   └── → n8n + Slack webhook o email
+│   │
+│   └── ¿Alertas de sistema o infraestructura?
+│       └── → Cloud Monitoring + Alerting
+│
+└── 8. NECESITO AUTENTICAR USUARIOS
+    └── → Firebase Authentication (mismo proyecto GCP epa-turing)
+        El backend verifica tokens reusando el mismo service account
+        ya usado para BigQuery/Firestore — sin secret nuevo.
+        Ver references/firebase-auth.md
 ```
 
 ---
@@ -298,20 +317,20 @@ from google.cloud import bigquery
 # si el service account tiene roles/bigquery.dataViewer en el dataset
 client = bigquery.Client(project="epa-turing")
 
-# Métricas cross-cliente: usar el dataset canónico
+# Métricas de un cliente: dataset {cliente}_reporting (resolver el nombre
+# exacto por lookup en INFORMATION_SCHEMA.SCHEMATA, no asumir el sufijo).
+# Ejemplo sobre una vista de métricas de Google Ads — nombres reales de vista
+# varían por cliente, ver epa-bq (plugin epa-dashboards) o el equipo de Datos.
 query = """
     SELECT
-      client_name,
-      medios,
-      date,
-      SUM(cost)         AS cost,
-      SUM(sessions)     AS sessions,
-      SUM(transactions) AS transactions,
-      SUM(revenue)      AS revenue
-    FROM `bdd-epa-digital.epa_agency_reports.account_metrics_daily`
-    WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-      AND client_name = @client_name
-    GROUP BY 1, 2, 3
+      campaign_id,
+      segments_date AS date,
+      SUM(metrics_cost_micros) / 1e6 AS cost,
+      SUM(metrics_conversions)       AS conversions,
+      SUM(metrics_conversions_value) AS conversions_value
+    FROM `bdd-epa-digital.chedraui_reporting.ads_CampaignBasicStats_{mcc}`
+    WHERE segments_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+    GROUP BY 1, 2
     ORDER BY date DESC
     LIMIT 1000
 """
@@ -319,9 +338,6 @@ query = """
 # Configurar un límite de bytes para evitar costos inesperados
 job_config = bigquery.QueryJobConfig(
     maximum_bytes_billed=100 * 1024 * 1024,  # 100 MB máximo
-    query_parameters=[
-        bigquery.ScalarQueryParameter("client_name", "STRING", "Innovasport"),
-    ],
 )
 
 results = client.query(query, job_config=job_config).result()

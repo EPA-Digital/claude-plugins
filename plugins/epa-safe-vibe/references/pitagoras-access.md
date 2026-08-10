@@ -3,6 +3,14 @@
 Pitágoras es la capa de integración centralizada de EPA para datos de medios.
 NUNCA acceder directamente a las APIs de plataforma desde código nuevo.
 
+> **La forma correcta de "acceder" hoy es leer BigQuery, no llamar a
+> Pitágoras.** Los datos ya están materializados en
+> `bdd-epa-digital.{cliente}_reporting`. El acceso directo a la API REST o al
+> MCP (Tokyo) está **DEPRECADO** para apps, dashboards, reportes y vibecoding
+> — el único consumidor legítimo es el ETL centralizado (en construcción,
+> área de Datos e IA). Si el dato que necesitas no está en BigQuery, escala a
+> `datos@epa.digital`; no lo resuelvas llamando a Pitágoras tú mismo.
+
 > Para detalles técnicos completos (clientes Python/TS, todos los endpoints,
 > manejo de errores, integración con BigQuery), ver
 > `epa-stack/references/pitagoras.md`. Este archivo es la versión corta para
@@ -10,12 +18,13 @@ NUNCA acceder directamente a las APIs de plataforma desde código nuevo.
 
 ---
 
-## Endpoints
+## Endpoints (referencia — uso exclusivo del ETL centralizado)
 
 ```
 API REST:    https://pitagoras-api-229508468478.us-central1.run.app
 API path:    /api/v1
 MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
+             DEPRECADO — nombre de producto Tokyo. No usar.
 ```
 
 Ambos son públicos pero requieren autenticación. La API genera un token bearer
@@ -42,32 +51,23 @@ Datos e IA antes de buscar acceso directo a su API.
 
 ---
 
-## Opción 1 — MCP de Pitágoras (recomendado para vibecoding)
+## Opción 1 — MCP de Pitágoras / Tokyo — DEPRECADO
 
-Si Claude Code o Cursor tienen el MCP configurado contra
-`https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp` (con `/mcp` al final),
-solo describe lo que quieres en lenguaje natural. **El MCP usa Google OAuth**
-— la primera vez aprueba el prompt de Google con tu cuenta `@epa.digital`:
-
-```
-"Obtén las campañas activas de Meta para el cliente Coppel del último mes"
-"Dame el gasto por campaña de Google Ads de Innovasport esta semana"
-"Compárame el ROAS de Google Ads vs Meta para Chedraui en Q1"
-"Hazme un reporte semanal de performance de Nestlé en Meta"
-```
-
-El MCP resuelve auth, paginación y normalización de datos. También expone
-prompts predefinidos como `meta_weekly_performance`, `google_ads_rca`,
-`cross_channel_budget_optimization`.
-
-Nota: el MCP todavía no expone reportes de **LinkedIn ni DV360** aunque la
-API sí los soporta. Para esos providers usar la API REST directamente.
+Este MCP (`https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp`, nombre de
+producto **Tokyo**) permitía pedir reportes en lenguaje natural durante
+vibecoding. **Ya no se usa.** Para explorar datos de un cliente durante
+vibecoding, lee directo `bdd-epa-digital.{cliente}_reporting` (ver
+`epa-stack/references/bigquery-patterns.md`) — no configures este MCP en
+proyectos nuevos.
 
 ---
 
-## Opción 2 — API REST de Pitágoras
+## Opción 2 — API REST de Pitágoras (uso exclusivo del ETL centralizado)
 
-Para apps que necesitan datos en runtime. El patrón mínimo:
+Este patrón ya no es para apps de vibecoding — es la referencia interna que
+usa el ETL centralizado (área de Datos e IA) para poblar
+`{cliente}_reporting`. Si estás construyendo una app o dashboard, no
+necesitas nada de esta sección: lee BigQuery. El patrón mínimo (referencia):
 
 ```python
 import httpx

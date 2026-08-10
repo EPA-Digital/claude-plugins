@@ -1,7 +1,7 @@
 {
   "name": "epa-naming",
   "description": "Naming conventions oficiales para todos los recursos en epa-turing: Firestore, BigQuery, Cloud Run, GCS, Secret Manager, variables de entorno y GitHub.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "EPA Digital — Datos e IA",
     "email": "datos@epa.digital"
