@@ -124,6 +124,12 @@ y seguir el árbol de decisión correspondiente.
         Ver references/firebase-auth.md
 ```
 
+> **Vibecoding = TypeScript.** Todo proyecto de vibecoding (dashboards y su
+> lógica) se hace en TypeScript con el stack del skill `epa-frontend`
+> (plugin epa-dashboards). Si el proyecto necesita un ETL, un job
+> programado o un servicio backend aparte, no lo construyas: escálalo al
+> equipo de datos (datos@epa.digital).
+
 ---
 
 ## Stack aprobado por lenguaje

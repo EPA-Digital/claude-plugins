@@ -144,7 +144,7 @@ Detalles: `epa-safe-vibe/references/protected-resources.md`.
 
 ## Plugins de este repo
 
-Este repo (`epa-digital/claude-plugins`) provee 5 plugins oficiales que definen
+Este repo (`epa-digital/claude-plugins`) provee 6 plugins oficiales que definen
 las convenciones EPA. Si los tienes instalados, Claude las aplica automáticamente:
 
 | Plugin | Propósito | Activación |
@@ -154,6 +154,7 @@ las convenciones EPA. Si los tienes instalados, Claude las aplica automáticamen
 | `epa-stack` | Árbol de decisión de arquitectura + boilerplate | Construir algo nuevo |
 | `epa-design` | Design system (tokens, componentes, copy) | Cualquier UI o presentación |
 | `epa-cicd` | Deploy a Cloud Run vía GitHub Actions | Subir app a producción |
+| `epa-dashboards` | Stack de frontend, convenciones de BigQuery por cliente, planificación, QA de diseño y seguridad para dashboards | Construir o modificar un dashboard |
 
 Instalación:
 ```
@@ -163,6 +164,7 @@ Instalación:
 /plugin install epa-stack@epa-plugins
 /plugin install epa-design@epa-plugins
 /plugin install epa-cicd@epa-plugins
+/plugin install epa-dashboards@epa-plugins
 ```
 
 O dejar que `extraKnownMarketplaces` y `enabledPlugins` en
@@ -174,8 +176,9 @@ O dejar que `extraKnownMarketplaces` y `enabledPlugins` en
 
 1. **Antes de crear recursos, revisar epa-naming.** Un nombre fuera de patrón
    rompe el inventario y dificulta el cobro por cliente.
-2. **Datos de medios → Pitágoras siempre.** Nunca directo a Meta/Google
-   Ads/TikTok/Bing.
+2. **Datos de medios → BigQuery (`{cliente}_reporting`) siempre.** Nunca
+   directo a Meta/Google Ads/TikTok/Bing, y ya no directo a Pitágoras
+   tampoco — eso quedó exclusivo del ETL centralizado.
 3. **Credenciales → Secret Manager.** Nunca en `.env` commiteado, nunca en
    strings literales.
 4. **Variables de entorno con prefijo `EPA_`.**
@@ -203,7 +206,7 @@ Diseño y design system:                             Área de Diseño
 ## Si algo no está documentado
 
 1. Revisar el plugin que aplica (epa-naming / epa-stack / epa-cicd / epa-design /
-   epa-safe-vibe).
+   epa-safe-vibe / epa-dashboards).
 2. Buscar un caso similar ya implementado en epa-turing y replicar.
 3. Si no hay precedente: preguntar al área de Datos antes de crear el recurso
    o tomar la decisión.
