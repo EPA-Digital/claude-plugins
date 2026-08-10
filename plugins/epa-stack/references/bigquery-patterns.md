@@ -4,14 +4,24 @@ EPA usa BigQuery en **varios proyectos GCP**. Saber dónde vive cada cosa antes
 de escribir SQL evita queries cross-project caras y duplicación de pipelines.
 
 ```
-bdd-epa-digital     ← canonical: data warehouse de la agencia (todos los clientes)
-                      Vistas reportables ya consolidadas con costos + resultados.
-epa-turing          ← runtime: datasets ad-hoc por producto, datos crudos
-                      (e.g. chedraui_raw, pitagoras_logs), staging temporal.
+bdd-epa-digital     ← canonical: data warehouse de la agencia
+                      Un dataset granular por cliente: {cliente}_reporting
+                      (medios pagados + analytics, vistas por plataforma).
+epa-turing          ← runtime: tablas del ETL centralizado en construcción
+                      ({cliente}_etl.{tabla}), datasets ad-hoc por producto,
+                      staging temporal.
 ga360-250517        ← excepción Coppel: dataset Epa_dataset con resultados de
                       campaña que provienen de Domo. NO usar salvo necesidad
                       explícita (ver sección al final).
 ```
+
+> **DEPRECADO:** `bdd-epa-digital.epa_agency_reports` (dataset cross-cliente
+> consolidado, vistas `account_metrics_daily` / `paid_media_metrics`). Ya no es
+> la fuente de verdad de nada — no lo consultes ni lo dupliques. El modelo
+> vigente es granular por cliente (`{cliente}_reporting`) + lo que vaya
+> produciendo el ETL centralizado. Hoy no hay un dataset agregador
+> cross-cliente — si necesitas un rollup entre varios clientes, escala a
+> datos@epa.digital.
 
 Región default para queries: `US` (multiregional). Convenciones de naming en
 epa-naming. Este documento es referencia técnica — abrir cuando se vaya a
@@ -19,69 +29,67 @@ escribir SQL serio o configurar costos.
 
 ---
 
-## Dataset canónico: `bdd-epa-digital.epa_agency_reports`
+## Datasets canónicos: `bdd-epa-digital.{cliente}_reporting`
 
-**Esta es la fuente de verdad para reporting cross-cliente en EPA.** Si lo que
-necesitas son métricas de gasto, sesiones, transacciones o revenue por cliente
-y por canal, **empieza aquí** antes de tocar otra cosa.
+**Esta es la fuente de verdad para datos de medios y analytics por cliente en
+EPA.** Cada cliente activo tiene su propio dataset en `bdd-epa-digital`, con
+una vista por plataforma y cuenta (Google Ads, GA4, Meta, TikTok, Bing,
+DV360…). No es un dataset único cross-cliente — es uno por cliente.
 
-### Vista 1 — `account_metrics_daily`
+### Resolver el dataset — nunca asumir el sufijo
 
-Métricas diarias por cliente, medio y campaña, **incluye orgánico + paid**.
-Buena para visiones de funnel y atribución de canal.
+`_reporting` es el sufijo más común, pero no es universal. Resolver siempre
+por lookup antes de escribir la primera query:
 
-| Columna | Tipo | Notas |
-|---|---|---|
-| `client_name` | STRING | Nombre del cliente (Coppel, Chedraui, Innovasport, …) |
-| `medios` | STRING | Canal/medio (Google Ads, Meta, GA4, organic, …) |
-| `client_id` | INTEGER | ID interno EPA del cliente |
-| `date` | DATE | Día del registro |
-| `campaign` | STRING | Nombre de campaña (si aplica) |
-| `cost` | FLOAT | Inversión del día (paid; 0 para organic) |
-| `impressions` | INTEGER | — |
-| `clicks` | INTEGER | — |
-| `default_channel_grouping` | STRING | Channel grouping default de GA |
-| `primary_channel_grouping` | STRING | Channel grouping primario EPA |
-| `sessions` | INTEGER | — |
-| `transactions` | INTEGER | — |
-| `revenue` | FLOAT | — |
+```sql
+SELECT schema_name
+FROM `bdd-epa-digital`.INFORMATION_SCHEMA.SCHEMATA
+WHERE LOWER(schema_name) LIKE '%{cliente}%';
+```
 
-### Vista 2 — `paid_media_metrics`
+Si hay más de un candidato, confirmar con el usuario cuál es el correcto antes
+de continuar.
 
-Igual que la anterior pero **filtrada a paid media** y con un campo extra de
-tipo de campaña. Buena para análisis de inversión y eficiencia.
+### Forma del dataset
 
-| Columna | Tipo | Notas |
-|---|---|---|
-| (todas las anteriores) | | Mismos tipos y semántica |
-| `campaign_type` | STRING | Tipo de campaña (Search, PMax, Shopping, Awareness, …) |
+Dentro de `{cliente}_reporting` las vistas siguen convenciones por plataforma
+(sufijo de cuenta/MCC, `_DATA_DATE`/`_LATEST_DATE` para entidades del transfer
+de Google, métricas en STRING para Meta/Bing que hay que castear, etc.) — el
+detalle completo de esquemas y recetas de query vive en el skill `epa-bq` del
+plugin `epa-dashboards`. Si no tienes ese plugin instalado, pide al área de
+Datos e IA el catálogo de vistas del cliente antes de escribir SQL contra su
+dataset.
+
+Regla universal de deduplicación: toda tabla `p_*` es la tabla física detrás
+de la vista homónima sin prefijo — **usar siempre la vista, ignorar la `p_*`**.
 
 ### Patrón de query típico
 
 ```sql
+-- Ejemplo sobre una vista de métricas de Google Ads (nombres reales varían
+-- por cliente — confirmar el catálogo antes de copiar esto literal)
 SELECT
-  client_name,
-  medios,
-  date,
-  SUM(cost)         AS cost,
-  SUM(sessions)     AS sessions,
-  SUM(transactions) AS transactions,
-  SUM(revenue)      AS revenue,
-  SAFE_DIVIDE(SUM(revenue), SUM(cost)) AS roas
-FROM `bdd-epa-digital.epa_agency_reports.account_metrics_daily`
-WHERE client_name = 'Innovasport'
-  AND date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-GROUP BY client_name, medios, date
+  campaign_id,
+  segments_date AS date,
+  SUM(metrics_cost_micros) / 1e6      AS cost,
+  SUM(metrics_impressions)            AS impressions,
+  SUM(metrics_clicks)                 AS clicks,
+  SUM(metrics_conversions)            AS conversions,
+  SUM(metrics_conversions_value)      AS conversions_value
+FROM `bdd-epa-digital.{cliente}_reporting.ads_CampaignBasicStats_{mcc}`
+WHERE segments_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+GROUP BY campaign_id, segments_date
 ORDER BY date DESC, cost DESC;
 ```
 
 ### Acceso
 
 `bdd-epa-digital` es proyecto separado de `epa-turing`. El service account del
-runtime que vaya a leer esta vista necesita `roles/bigquery.dataViewer` sobre
-`bdd-epa-digital.epa_agency_reports` (solicitar al área de Datos e IA con
+runtime que vaya a leer estas vistas necesita `roles/bigquery.dataViewer` sobre
+`bdd-epa-digital.{cliente}_reporting` (solicitar al área de Datos e IA con
 caso de uso explícito). Las vistas son **read-only** para todos los runtimes
-— escribir aquí va por el área de Datos e IA exclusivamente.
+— escribir aquí va por el área de Datos e IA exclusivamente. Las puebla el
+equipo de dev hoy; a futuro, también el ETL centralizado en construcción.
 
 ---
 
@@ -93,17 +101,18 @@ del tipo `PMBF_DetalleFMCampaign`, `PMBF_DetalleFunnelXBuildingBlock`,
 `PMBF_DetalleTransaccionesPorProducto`, etc.
 
 Reglas:
-1. **Los costos de Coppel SÍ están en `bdd-epa-digital.epa_agency_reports`**
-   con el resto de los clientes — preferir ese dataset cuando solo necesitas
-   inversión.
+1. **Costos de Coppel:** verificar primero si existe
+   `bdd-epa-digital.coppel_reporting` (lookup por `INFORMATION_SCHEMA.SCHEMATA`,
+   igual que con cualquier otro cliente) — si existe, preferir ese dataset
+   cuando solo necesitas inversión.
 2. **Los resultados (transacciones, revenue por SKU, funnel, etc.) sólo están
    en `ga360-250517.Epa_dataset`** porque el cliente los provee así desde Domo.
 3. **Petición explícita del cliente:** no consultar este dataset salvo que sea
    estrictamente necesario.
 4. Si el usuario lo pide, primero confirma:
    > "El reporte que estás armando, ¿realmente requiere las tablas
-   > `PMBF_*` del dataset Coppel-Domo, o nos sirven los costos en
-   > `bdd-epa-digital.epa_agency_reports`? El cliente pidió no usar Domo a
+   > `PMBF_*` del dataset Coppel-Domo, o nos sirven los costos de
+   > `bdd-epa-digital.coppel_reporting`? El cliente pidió no usar Domo a
    > menos que sea necesario."
 5. Solo proceder si la respuesta confirma que se necesitan los resultados
    específicos que solo están ahí (ej. detalle por SKU, building blocks de
@@ -131,9 +140,9 @@ escanea la tabla entera y dispara facturación.
 ### Partición por fecha (caso típico)
 
 Estos ejemplos aplican cuando estás creando tablas en `epa-turing` (datasets
-ad-hoc por producto o cliente, ej. `chedraui_raw`). Las vistas canónicas de
-`bdd-epa-digital.epa_agency_reports` ya están particionadas y no requieres
-crearlas.
+ad-hoc por producto o cliente, ej. `{cliente}_etl`). Las vistas de
+`bdd-epa-digital.{cliente}_reporting` ya están particionadas/gestionadas por
+quien las puebla — no las recrees.
 
 ```sql
 CREATE TABLE `epa-turing.chedraui_raw.campaigns_daily` (
@@ -217,16 +226,16 @@ Si el dry run reporta >5 GB, revisar antes de ejecutar.
 ### 3. Filtrar por partición SIEMPRE
 
 ```sql
--- ✗ Escanea toda la tabla
-SELECT campaign, SUM(cost)
-FROM `bdd-epa-digital.epa_agency_reports.paid_media_metrics`
+-- ✗ Escanea toda la tabla (vistas de Google Ads pueden tener cientos de
+--    millones de filas — ver epa-bq para volúmenes reales por vista)
+SELECT campaign_id, SUM(metrics_cost_micros) / 1e6 AS cost
+FROM `bdd-epa-digital.{cliente}_reporting.ads_CampaignBasicStats_{mcc}`
 GROUP BY 1;
 
--- ✓ Solo lee la partición necesaria
-SELECT campaign, SUM(cost)
-FROM `bdd-epa-digital.epa_agency_reports.paid_media_metrics`
-WHERE date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
-  AND client_name = 'Innovasport'
+-- ✓ Solo lee el rango necesario
+SELECT campaign_id, SUM(metrics_cost_micros) / 1e6 AS cost
+FROM `bdd-epa-digital.{cliente}_reporting.ads_CampaignBasicStats_{mcc}`
+WHERE segments_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 GROUP BY 1;
 ```
 
@@ -240,13 +249,14 @@ explícitamente las columnas necesarias reduce costo 5–20× en tablas anchas.
 ## Patrón ELT estándar EPA (cuando NECESITAS construir uno)
 
 > **Antes de construir un ELT propio**, validar si el dato ya está en
-> `bdd-epa-digital.epa_agency_reports`. La mayoría de los reportes cross-cliente
-> pueden resolverse leyendo de ese dataset directamente. Construir un ELT
-> nuevo solo cuando:
-> - El cliente requiere granularidad o dimensiones que no están en las vistas
->   canónicas.
+> `bdd-epa-digital.{cliente}_reporting`. La mayoría de los reportes de cliente
+> pueden resolverse leyendo de ahí directamente. Construir un ELT nuevo solo
+> cuando:
+> - El cliente requiere granularidad o dimensiones que no están en esas vistas
+>   — y entonces es candidato al ETL centralizado en construcción, no a un
+>   pipeline propio (evita duplicación; consultar con el área de Datos e IA).
 > - Es un producto interno con dominio propio (ej. logs de Pitágoras).
-> - El área de Datos e IA aprobó la duplicación.
+> - El área de Datos e IA aprobó la duplicación explícitamente.
 
 Cuando sí construyes un ELT propio en `epa-turing`:
 
@@ -267,9 +277,10 @@ Cuando sí construyes un ELT propio en `epa-turing`:
 Cada paso es una scheduled query o un Cloud Run job. Nunca leer directo de RAW
 desde un dashboard de cliente.
 
-> Las **vistas canónicas** (`bdd-epa-digital.epa_agency_reports.*`) ya son el
-> equivalente al MART para casos comunes — el área de Datos e IA mantiene la
-> ingesta y normalización. No dupliques esa lógica en `epa-turing`.
+> Las **vistas de `bdd-epa-digital.{cliente}_reporting`** ya son el equivalente
+> al MART para casos comunes — el equipo de dev mantiene la ingesta y
+> normalización (y a futuro, el ETL centralizado). No dupliques esa lógica en
+> `epa-turing`.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "name": "epa-safe-vibe",
   "description": "Guardrail maestro de seguridad para vibecoding en EPA. Bloquea operaciones destructivas, credenciales hardcodeadas, acceso directo a APIs de medios, malas prácticas de arquitectura y deploys de Cloud Run que sobrescriban servicios existentes (hook PreToolUse).",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": {
     "name": "EPA Digital — Datos e IA",
     "email": "datos@epa.digital"

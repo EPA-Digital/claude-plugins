@@ -242,9 +242,9 @@ Si el código hace queries a `ga360-250517.Epa_dataset` o referencia tablas
 > "⚠️ Estás consultando el dataset Coppel-Domo (`ga360-250517.Epa_dataset`).
 > El cliente pidió no usarlo salvo necesidad estricta.
 >
-> ¿Lo que necesitas son sólo costos? Esos están en
-> `bdd-epa-digital.epa_agency_reports.paid_media_metrics` con el resto de
-> los clientes. Cambia ahí.
+> ¿Lo que necesitas son sólo costos? Verifica si existen en
+> `bdd-epa-digital.coppel_reporting` (mismo patrón que el resto de clientes).
+> Si existen, cambia ahí.
 >
 > ¿Necesitas resultados detallados (transacciones por SKU, building blocks
 > de funnel custom) que no están en el dataset canónico? Confirma que sabes

@@ -3,21 +3,29 @@
 Pitágoras es la capa de integración centralizada de EPA para datos de medios.
 NUNCA acceder directamente a las APIs de plataforma desde código nuevo.
 
+> **DEPRECADO:** llamar a Pitágoras directo desde apps, dashboards, reportes
+> o vibecoding interactivo. El único consumidor de este documento hoy es el
+> **ETL centralizado** (en construcción, área de Datos e IA). Todo lo demás
+> lee los datos ya materializados en BigQuery
+> (`bdd-epa-digital.{cliente}_reporting`) — si el dato que necesitas no está
+> ahí, escala a datos@epa.digital en vez de llamar a Pitágoras. El resto de
+> este documento es la referencia técnica que usa el ETL internamente.
+
 ## Endpoints
 
 ```
 API REST:    https://pitagoras-api-229508468478.us-central1.run.app
 API path:    /api/v1
+             Uso: EXCLUSIVO del ETL centralizado.
 MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
+             DEPRECADO — nombre de producto Tokyo. No usar.
 ```
 
-> Ambos endpoints son públicos pero **requieren autenticación distinta**:
+> Ambos endpoints son públicos pero **requerían autenticación distinta**:
 > - **API REST**: token bearer obtenido vía `POST /api/v1/customers` con un
 >   `user_email` autorizado. El token va en `Authorization` (sin `Bearer `).
-> - **MCP Server**: **Google OAuth**. La conexión se autentica con la cuenta
->   Google del usuario (la misma de `@epa.digital`). El cliente MCP de Claude
->   Code o Cursor maneja el flujo OAuth automáticamente; tú solo apruebas el
->   prompt de Google la primera vez.
+> - **MCP Server (Tokyo, deprecado)**: usaba Google OAuth con la cuenta
+>   `@epa.digital` del usuario.
 >
 > Nunca expongas el token de la API ni el `user_email` en logs, respuestas
 > al cliente, ni en commits.
@@ -48,20 +56,18 @@ e IA antes de buscar acceso directo a su API.
 ## Decisión rápida — qué método usar
 
 ```
-Vibecoding interactivo (Claude Code, Cursor, Cowork)
-    └── MCP de Pitágoras (sin escribir código)
+Necesito datos de medios para una app, dashboard o vibecoding
+    └── Léelos de bdd-epa-digital.{cliente}_reporting. NO llames a Pitágoras.
+        Si el dato no está ahí, escala a datos@epa.digital.
 
-App o servicio en runtime
-    └── API REST con httpx / fetch + token bearer
+Soy el ETL centralizado (área de Datos e IA) construyendo un extract nuevo
+    └── API REST con httpx / fetch + token bearer (ver abajo)
 
-Pipeline batch a BigQuery
-    └── API REST + Cloud Run job (no llamar desde dashboard)
-
-n8n flow
-    └── HTTP Request node con credencial "EPA · Pitágoras API"
+Vibecoding interactivo vía MCP (Tokyo)
+    └── DEPRECADO. No usar.
 
 Solo necesito presupuestos asignados por cuenta
-    └── Endpoint de budgets (ver más abajo)
+    └── Endpoint de budgets — mismo criterio: uso exclusivo del ETL.
 ```
 
 ---
@@ -297,63 +303,14 @@ export class PitagorasClient {
 
 ---
 
-## MCP de Pitágoras — uso en vibecoding
+## MCP de Pitágoras (Tokyo) — DEPRECADO
 
-Si Claude Code o Cursor tienen el MCP de Pitágoras configurado en
-`https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp` (con `/mcp` al final, es
-obligatorio), basta con pedir en lenguaje natural:
-
-> **Auth:** el MCP server usa **Google OAuth**, no token bearer. La primera
-> vez que tu cliente MCP se conecta, abre un flujo de Google donde apruebas
-> el acceso con tu cuenta `@epa.digital`. Después se mantiene la sesión.
-> Si recibes errores de auth, cierra y reabre el cliente MCP para reactivar
-> el flujo OAuth.
-
-```
-"Trae las campañas activas de Meta del cliente Coppel del último mes"
-"Compárame el ROAS de Google Ads vs Meta para Innovasport en Q1"
-"Detecta fatiga creativa en Meta para Chedraui en los últimos 21 días"
-"Hazme un Root Cause Analysis cross-channel de Nestlé del último mes"
-```
-
-El MCP resuelve auth, paginación, normalización de datos y trae **prompts
-predefinidos** para análisis frecuentes. Tools y prompts disponibles:
-
-### Tools
-- `get_customers` — auth + lista de cuentas accesibles
-- `adwords_report`, `facebook_report`, `analytics_report`, `analytics4_report`,
-  `bing_report`, `tiktok_report` — reportes por plataforma
-- `ping` — health check
-
-### Resources de descubrimiento
-```
-adwords://resources, adwords://attributes/{resource},
-adwords://segments/{resource}, adwords://metrics/{resource}
-facebook://schema
-analytics://dimensions, analytics://metrics, analytics://filters
-analytics4://metadata
-bing://levels, bing://columns/{level}
-tiktok://data-levels, tiktok://dimensions/{data_level}, tiktok://metrics
-```
-
-### Prompts predefinidos (selección)
-```
-Meta:           meta_weekly_performance, meta_creative_fatigue,
-                meta_audience_performance, meta_account_health,
-                meta_budget_efficiency, meta_rca
-Google Ads:     google_ads_weekly_performance, google_ads_auction_insights,
-                google_ads_search_terms, google_ads_shopping_performance,
-                google_ads_account_audit, google_ads_rca
-GA / GA4:       analytics_channel_attribution, analytics_funnel_leaks,
-                analytics_audience_segments, analytics_checkout_abandonment
-Cross-channel:  cross_channel_performance, cross_channel_rca,
-                cross_channel_budget_optimization
-```
-
-> El MCP todavía no expone reportes de **LinkedIn ni DV360** aunque la API sí los
-> soporta. Para esos providers, usar la API REST directamente hasta nuevo aviso.
-
-Para apps en runtime (no vibecoding), seguir usando la API REST.
+Este MCP (`https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp`, nombre de
+producto **Tokyo**) exponía tools de reporte por plataforma, resources de
+descubrimiento y prompts predefinidos para pedir análisis en lenguaje natural
+sobre datos de Pitágoras. **Ya no se usa** — el acceso a datos de medios pasa
+por BigQuery (`bdd-epa-digital.{cliente}_reporting`), poblado por el ETL
+centralizado. No configurar este MCP en proyectos nuevos.
 
 ---
 
