@@ -85,7 +85,7 @@ repo falla en vez de silenciarse — un solo gestor de paquetes por diseño.
 22
 ```
 
-Node 22 LTS fijado. Mismo valor en la imagen de CI (`epa-cicd`).
+Node 22 LTS fijado. Mismo valor en la imagen de CI (`epa-deploy`).
 
 ---
 
@@ -96,4 +96,4 @@ pnpm typecheck && pnpm lint && pnpm build
 ```
 
 Los tres verdes o no hay deploy — sin excepciones ni flags de skip (ver
-`epa-cicd`).
+`epa-deploy`).

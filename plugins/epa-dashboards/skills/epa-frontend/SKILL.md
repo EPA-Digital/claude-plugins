@@ -10,11 +10,10 @@ description: >
 
 # EPA Frontend — Stack de Dashboards
 
-Capa de vibecoding para dashboards, encima de `epa-stack` (que ya elige
-Next.js 15 + Tailwind como el stack preferido de UI) y `epa-design` (tokens,
-copy, componentes). Este skill fija los detalles que `epa-stack` deja
-abiertos: gestor de paquetes, config exacta de TypeScript, de dónde salen los
-componentes y los charts, y cómo se accede a datos.
+El stack cerrado para todo dashboard vibecodeado en EPA: gestor de
+paquetes, config exacta de TypeScript, de dónde salen los componentes y
+los charts, y cómo se accede a datos. Trabaja junto a `epa-design` (tokens,
+copy, componentes) y `epa-bq` (datos).
 
 ---
 
@@ -34,7 +33,7 @@ Formateo         Prettier + prettier-plugin-tailwindcss
 Testing          Vitest + Testing Library (smoke: cada página renderiza sin
                  crash) — nada más profundo; eso se prueba una vez en el kit
 CI               pnpm typecheck && pnpm lint && pnpm build — gate de deploy,
-                 sin excepciones (ver epa-cicd)
+                 sin excepciones (ver epa-deploy)
 ```
 
 Detalle y racional completo en `references/stack.md`. Bloques copiables
@@ -113,7 +112,7 @@ Todo acceso a BigQuery pasa por **route handlers del proyecto** con queries
 
 ---
 
-## Regla 6 — Vibecoding = TypeScript
+## Regla 6 — Sin backend propio
 
 El dashboard no tiene backend fuera de sus propios route handlers. Si el
 proyecto parece necesitar un job programado, un ETL o un servicio aparte:
@@ -139,12 +138,15 @@ y del plugin `epa-dashboards`.
 ## Reglas del proyecto
 
 - Los datos salen de route handlers propios con queries parametrizadas a
-  BigQuery — nunca fetch directo a BQ ni a APIs de medios desde el cliente.
+  BigQuery — nunca fetch directo a BQ ni a APIs de medios/Pitágoras desde
+  el cliente.
 - Los charts van con Recharts + las convenciones de `epa-frontend`
   (título/subtítulo, colores por canal desde tokens, máx. 6 series) — nunca
   CSS custom para chartear.
 - Las primitivas de UI vienen del registry EPA de shadcn, nunca hechas a
   mano.
+- Sin login propio — el acceso se restringe en capa de plataforma (ver
+  `references/auth.md`). No improvisar Firebase/NextAuth/tabla de usuarios.
 - Si el proyecto parece necesitar un ETL o un job aparte, escalar a
   datos@epa.digital — no construirlo aquí.
 
@@ -165,8 +167,20 @@ por lookup, ver `epa-bq`). Contexto real del cliente:
 
 ## Referencias
 
-- `epa-dashboards` (skills `epa-frontend`, `epa-bq`; comandos
-  `/plan-dashboard`, `/client-context`, `/critique-epa`)
-- `epa-design` — design system
-- `epa-safe-vibe` — guardrails de seguridad
+Todo vive en el plugin `epa-dashboards` — 5 skills (`epa-frontend`,
+`epa-bq`, `epa-design`, `epa-deploy`, `epa-safe-vibe`), 3 comandos
+(`/plan-dashboard`, `/client-context`, `/critique-epa`, `/migrate-to-epa`)
+y el agente
+`security-reviewer`. Se activan solos según el contexto — no hace falta
+invocarlos por nombre salvo los comandos.
 ```
+
+---
+
+## Regla 8 — Auth
+
+Hoy ningún dashboard tiene login propio. El acceso se restringe en capa de
+plataforma (proxy autenticado / IAM invoker), no en la app — ver
+`references/auth.md` antes de escribir cualquier lógica de sesión. Si el
+proyecto necesita login de cliente final ahora, escalar a
+`datos@epa.digital`, no improvisar.

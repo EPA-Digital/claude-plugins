@@ -108,7 +108,7 @@ silencioso en un error de CI que Claude Code lee y corrige solo. El costo
 (fricción al escribir) lo paga el LLM, no el humano — es la economía
 correcta.
 
-**Gate de CI (epa-cicd):** `pnpm typecheck && pnpm lint && pnpm build` — los
+**Gate de CI (epa-deploy):** `pnpm typecheck && pnpm lint && pnpm build` — los
 tres verdes o no hay deploy. Sin excepciones ni flags de skip.
 
 ---
@@ -156,7 +156,7 @@ Formateo         Prettier + prettier-plugin-tailwindcss
 Lint             ESLint flat + typescript-eslint strict-type-checked + reglas EPA
 Testing          Vitest + RTL (smoke) · Playwright en el kit
 Instrucciones    AGENTS.md (CLAUDE.md symlink)
-CI               epa-cicd: typecheck + lint + build como gate de deploy
+CI               epa-deploy: typecheck + lint + build como gate de deploy
 ```
 
 ## 6. Anti-stack (lo que está prohibido y por qué)

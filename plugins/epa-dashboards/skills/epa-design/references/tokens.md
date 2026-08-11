@@ -1,6 +1,7 @@
-# EPA Design Tokens — Referencia Rápida
+# EPA Design Tokens — Referencia Rápida (product)
 
-Todos los valores del DESIGN.md v2 organizados para copy-paste directo en código.
+Todos los valores del `DESIGN.md` organizados para copy-paste directo en
+código. Versión product-only — sin tokens de deck/brand.
 
 ## CSS Custom Properties — completas
 
@@ -9,23 +10,12 @@ Todos los valores del DESIGN.md v2 organizados para copy-paste directo en códig
   /* === BRAND CORE === */
   --epa-primary:          #003AD6;
   --epa-primary-dark:     #002BAF;
-  --epa-primary-deep:     #00199C;
-  --epa-primary-deepest:  #00154B;
-  --epa-primary-bright:   #0051FF;
   --epa-primary-mid:      #B8CAFE;
   --epa-primary-light:    #E8EFFE;
-  --epa-primary-wash:     #E5EEFA;
   --epa-on-primary:       #FFFFFF;
 
-  /* === ACCENTS (DECK ONLY) === */
-  --epa-accent-cyan:      #00E8FF;
-  --epa-accent-cyan-ink:  #03B0FF;
-  --epa-accent-magenta:   #DB0043;
-
-  /* === BRAND NEUTRALS (DECK) === */
+  /* === BRAND NEUTRALS === */
   --epa-ink:              #0E141E;
-  --epa-slate:            #8691AE;
-  --epa-slate-soft:       #707E9F;
 
   /* === PRODUCT SURFACES === */
   --epa-surface:          #FFFFFF;

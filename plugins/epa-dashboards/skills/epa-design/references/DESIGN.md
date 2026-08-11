@@ -1,32 +1,24 @@
 ---
 version: alpha
-name: EPA Digital Design System
+name: EPA Digital Design System (product-only)
 description: >
-  Design system for EPA Digital — a performance-marketing agency (~170 people, LATAM HQ).
-  Spans two surfaces: the dense product UI (Pitágoras, client dashboards, internal analytics tools, vibecoding apps)
-  and the brand/deck surface (executive client presentations, QBRs, case studies).
-  All user-facing copy defaults to Spanish (LATAM professional register, informal second-person).
+  Design system for EPA Digital dashboards — a performance-marketing agency
+  (~170 people, LATAM HQ). This is the product-surface subset: dense
+  product UI (client dashboards, internal analytics tools). The full
+  agency design system (which also covers brand/deck — client
+  presentations, QBRs) is maintained by the área de Diseño, outside this
+  plugin. All user-facing copy defaults to Spanish (LATAM professional
+  register, informal second-person).
 
 colors:
   # --- Brand core ---
   primary:          "#003AD6"   # EPA Blue — the identity anchor
   primary-dark:     "#002BAF"   # Hover / pressed
-  primary-deep:     "#00199C"   # Theme dark blue
-  primary-deepest:  "#00154B"   # Near-black for aurora slide backgrounds
-  primary-bright:   "#0051FF"   # Saturated aurora blue (deck gradients only)
   primary-mid:      "#B8CAFE"   # Chart accent, secondary data series
   primary-light:    "#E8EFFE"   # Active nav fill, AI-insights tint
-  primary-wash:     "#E5EEFA"   # Slide panel light-wash
 
-  # --- Accents (deck / brand — NOT for product UI) ---
-  accent-cyan:      "#00E8FF"   # Electric aqua — eyebrows, infographic highlights
-  accent-cyan-ink:  "#03B0FF"   # Mid-cyan for icons on light backgrounds
-  accent-magenta:   "#DB0043"   # Deck only — dramatic KPI emphasis
-
-  # --- Brand neutrals (slides) ---
-  ink:              "#0E141E"   # Wordmark dark — not pure black
-  slate:            "#8691AE"   # Cool grey
-  slate-soft:       "#707E9F"   # Secondary cool grey
+  # --- Brand neutrals ---
+  ink:              "#0E141E"   # Near-black — use instead of pure #000000
 
   # --- Product surfaces ---
   surface:          "#FFFFFF"   # Cards, panels
@@ -122,43 +114,6 @@ typography:
     fontWeight: 400
     lineHeight: 18px
     letterSpacing: 0
-
-  # --- Brand / Deck scale ---
-  d-hero:
-    fontFamily: IBM Plex Sans
-    fontSize: 96px
-    fontWeight: 700
-    lineHeight: 1.04
-    letterSpacing: -1.8px
-  d-title:
-    fontFamily: IBM Plex Sans
-    fontSize: 70px
-    fontWeight: 700
-    lineHeight: 1.08
-    letterSpacing: -1.2px
-  d-subtitle:
-    fontFamily: IBM Plex Sans
-    fontSize: 28px
-    fontWeight: 400
-    lineHeight: 1.35
-    letterSpacing: -0.3px
-  d-body:
-    fontFamily: IBM Plex Sans
-    fontSize: 18px
-    fontWeight: 400
-    lineHeight: 1.55
-  d-caption:
-    fontFamily: IBM Plex Sans
-    fontSize: 14px
-    fontWeight: 400
-    lineHeight: 1.5
-  d-eyebrow:
-    fontFamily: IBM Plex Sans
-    fontSize: 12px
-    fontWeight: 600
-    lineHeight: 1
-    letterSpacing: 1.6px
-    fontFeature: "case"
 
 rounded:
   sm:   4px     # Sub-components, nested chips
@@ -381,71 +336,21 @@ components:
     typography: "{typography.ui-mono}"
     rounded: "{rounded.sm}"
     padding: 1px 6px
-
-  # --- Deck components (surface: deck) ---
-  deck-eyebrow:
-    surface: deck
-    textColor: "{colors.accent-cyan}"
-    typography: "{typography.d-eyebrow}"
-
-  deck-eyebrow-light:
-    surface: deck
-    textColor: "{colors.primary}"
-    typography: "{typography.d-eyebrow}"
-
-  deck-stat-card:
-    surface: deck
-    backgroundColor: "rgba(255,255,255,0.08)"
-    textColor: "#FFFFFF"
-    rounded: "{rounded.lg}"
-    padding: 20px 24px
 ---
 
-# EPA Digital Design System
+# EPA Digital Design System — product (dashboards)
+
+> Versión product-only, para dashboards. La spec completa de la agencia
+> (que también cubre presentaciones/deck) la mantiene el área de Diseño —
+> no es propiedad de este repo.
 
 ## Overview
 
-EPA Digital es una agencia de performance marketing de ~170 personas con sede en LATAM (México), trabajando con marcas como Coppel, Chedraui, Innovasport, Nestlé y ABInBev, entre otras. El design system cubre dos superficies completamente distintas que deben sentirse como una sola marca cohesiva.
+EPA Digital es una agencia de performance marketing de ~170 personas con sede en LATAM (México), trabajando con marcas como Coppel, Chedraui, Innovasport, Nestlé y ABInBev, entre otras.
 
-**Superficie product — Pitágoras, dashboards de cliente y herramientas internas:** Densa, orientada a datos, analítica. Diagnósticos de Meta Pixel y CAPI, módulos de performance audit, análisis de funnel, dashboards en Next.js + Tailwind. Siente como un terminal Bloomberg con contención y craft — texto de 13px por defecto, bordes hairline de 0.5px, fondo blanco, pequeños acentos azules. La densidad de información es una característica, no un problema.
+**Superficie product — dashboards de cliente y herramientas internas:** Densa, orientada a datos, analítica. Dashboards en Next.js + Tailwind. Siente como un terminal Bloomberg con contención y craft — texto de 13px por defecto, bordes hairline de 0.5px, fondo blanco, pequeños acentos azules. La densidad de información es una característica, no un problema.
 
-**Superficie deck — presentaciones para clientes y QBRs:** Expansiva, segura, de alto impacto. Headlines IBM Plex Sans Bold de 70–96px. Fondos aurora con gradiente profundo (navy → electric blue → violet/cyan). Tipo blanco sobre campos oscuros saturados. Eyebrows en cyan eléctrico. El deck es el espejo inverso del producto: oscuro donde el producto es blanco, grande donde el producto es compacto.
-
-La personalidad de marca en ambas superficies es **data-credible**: experta, directa, nunca fría, nunca inflada. Respeta la inteligencia de analistas y operadores.
-
----
-
-## Surfaces
-
-La bifurcación más importante del sistema. Antes de generar cualquier pantalla o componente, identificar la superficie.
-
-### Superficie: Product
-
-Aplica para apps internas, dashboards, herramientas de datos, y cualquier interfaz operada por el equipo de EPA o clientes en una sesión de trabajo.
-
-| Propiedad | Valor |
-|---|---|
-| Fondo de canvas | `surface-secondary` (#FAFAFA) |
-| Fondo de cards | `surface` (#FFFFFF) |
-| Tipografía default | `ui-body` (IBM Plex Sans 13px) |
-| Color primario de acción | `primary` (#003AD6) |
-| Separación | Borders hairline 0.5px |
-| Gradientes | Prohibidos |
-| Accents cyan/magenta | Prohibidos |
-
-### Superficie: Deck
-
-Aplica para presentaciones de clientes, QBRs, case studies, y materiales de pitch.
-
-| Propiedad | Valor |
-|---|---|
-| Fondo de slide oscuro | `primary-deepest` (#00154B) con gradiente aurora |
-| Fondo de slide claro | `surface` (#FFFFFF) |
-| Tipografía default | `d-title` (IBM Plex Sans 70px Bold) |
-| Eyebrow | `accent-cyan` en slides oscuros, `primary` en slides claros |
-| Separación | Sin bordes — separación por contraste de fondo |
-| Gradientes | Exclusivos de esta superficie |
-| Componentes product | Prohibidos (no usar button-primary, pills, inputs en slides) |
+La personalidad de marca es **data-credible**: experta, directa, nunca fría, nunca inflada. Respeta la inteligencia de analistas y operadores.
 
 ---
 
@@ -453,17 +358,12 @@ Aplica para presentaciones de clientes, QBRs, case studies, y materiales de pitc
 
 El sistema está anclado en **EPA Blue (#003AD6)** — un azul confiado, levemente frío, de saturación media. Todos los demás colores son satélites de él.
 
-**Brand core:**
-- **Primary (#003AD6):** El anchor de identidad único. Solo a saturación completa — nunca tintado para decoración en product UI. Usado en botones primarios, el indicador activo de nav (barra de 2px), focus rings, acentos del panel de AI-insights y links inline.
+- **Primary (#003AD6):** El anchor de identidad único. Solo a saturación completa — nunca tintado para decoración. Usado en botones primarios, el indicador activo de nav (barra de 2px), focus rings, acentos del panel de AI-insights y links inline.
 - **Primary Dark (#002BAF):** Estado hover y pressed del botón primario. No decorativo.
 - **Primary Light (#E8EFFE):** La presencia más suave de la marca — relleno del row activo en nav y fondo del panel AI-insights al 30% de opacidad. Nunca como tint genérico.
 - **Primary Mid (#B8CAFE):** Líneas de acento en gráficas, series de datos secundarias únicamente. Nunca para texto.
-- **Primary Deepest (#00154B):** Navy casi negro para fondos aurora de slides. Nunca aparece en product UI.
-- **Primary Bright (#0051FF):** Azul aurora más saturado — exclusivo para gradientes de deck y la marca.
 
-**Accents — exclusivos de deck y brand:**
-- **Accent Cyan (#00E8FF):** Aqua eléctrico para texto de eyebrow en slides, highlights de infografía, énfasis de números hero, y la barra de progreso de slides. Nunca en product UI — se lee demasiado ruidoso sobre blanco.
-- **Accent Magenta (#DB0043):** Reservado para momentos de KPI dramáticos en decks ejecutivos. Nunca en product.
+**Magenta (#DB0043) y cyan (#00E8FF) están prohibidos.** No son parte de este sistema — no los uses aunque los veas en algún material de marca de la agencia (viven en la superficie deck, fuera de alcance aquí).
 
 **Colores semánticos** siguen un sistema de cuarteto — cada uno tiene `base` (ancla cromática), `bg` (tinte muy claro para fondos), `border` (tinte medio para contornos), y `text` (tono oscuro para texto con contraste AA). Se aplican a pills de status, banners de alerta, bandas de severidad EMQ.
 
@@ -494,28 +394,13 @@ Una sola familia: **IBM Plex Sans**, hospedada como variable font (eje de peso 1
 
 `ui-caps` es el estilo dominante para group labels en cards y headers de tabla. Es el único uso de uppercase en el producto. Nunca usarlo para oraciones completas.
 
-### Escala deck — espacial, expresiva
-
-| Token | Size | Weight | Tracking | Rol |
-|---|---|---|---|---|
-| `d-hero` | 96px | 700 | −1.8px | Headline de slide portada |
-| `d-title` | 70px | 700 | −1.2px | Default de master PPTX |
-| `d-subtitle` | 28px | 400 | −0.3px | Subhead de apoyo en portada |
-| `d-body` | 18px | 400 | 0 | Texto de cuerpo en slides |
-| `d-caption` | 14px | 400 | 0 | Líneas de atribución, footnotes |
-| `d-eyebrow` | 12px | 600 | +1.6px | Categoría de slide sobre el título — **siempre uppercase** |
-
-`d-eyebrow` aparece en `accent-cyan` sobre slides oscuros y `primary` sobre slides claros. La línea decorativa precedente (28px × 1px) es parte del patrón eyebrow.
-
-**Regla de capitalización:** Sentence case en todo. Uppercase es exclusivo de `ui-caps` y `d-eyebrow`. Nunca ALL-CAPS en oraciones o botones CTA.
+**Regla de capitalización:** Sentence case en todo. Uppercase es exclusivo de `ui-caps`. Nunca ALL-CAPS en oraciones o botones CTA.
 
 **Numéricos:** Todos los valores métricos usan `font-variant-numeric: tabular-nums`. Humanizar umbrales: `1.2K` / `340K` / `2.3M`. Porcentajes: un decimal si no es entero, sin `.0` en enteros. Deltas usan `▲` / `▼` (flechas geométricas unicode, no emoji) en color `success` o `danger`. Delta cero → `— sin cambio` en `content-tertiary`.
 
 ---
 
 ## Layout
-
-### Product (Pitágoras, dashboards de cliente y apps internas)
 
 Tres columnas estructurales fijas, de izquierda a derecha:
 
@@ -527,15 +412,11 @@ Tres columnas estructurales fijas, de izquierda a derecha:
 
 **Grid:** `grid-gutter: 16px`, `grid-margin: 20px`, `grid-max-width: 1440px`. Spacing siempre en múltiplos de 4px.
 
-### Deck
-
-Canvas fijo: **1280×720px**, escalado proporcionalmente vía `transform: scale()`. Márgenes de slide: 56–72px desde los bordes. En slides oscuros (portada, separador de sección, datos), la gravedad del contenido es bottom-anchored — el headline cerca del fondo con cielo arriba. En slides claros (título+cuerpo, comparación), el contenido centra verticalmente en el 60% izquierdo.
-
 ---
 
 ## Elevation & Depth
 
-**Product: bordes hairline, sombras mínimas.** `0.5px solid #E5E5E5` separa cada card, panel, e input de su vecino. El valor 0.5px produce "airy density" — máxima información por pantalla sin congestión visual. Debe aplicarse via `style` inline o utility CSS dedicada — la clase `border` de Tailwind redondea a 1px.
+**Bordes hairline, sombras mínimas.** `0.5px solid #E5E5E5` separa cada card, panel, e input de su vecino. El valor 0.5px produce "airy density" — máxima información por pantalla sin congestión visual. Debe aplicarse via `style` inline o utility CSS dedicada — la clase `border` de Tailwind redondea a 1px.
 
 | Token | Valor | Uso |
 |---|---|---|
@@ -544,8 +425,6 @@ Canvas fijo: **1280×720px**, escalado proporcionalmente vía `transform: scale(
 | `shadows.lg` | `0 8px 24px rgba(10,14,30,0.08)` | Modals, dropdowns |
 
 Color de sombra ink-tinted (`rgba(10,14,30,...)`) — nunca negro puro. Sin sombras multicapa. Sin glow effects. `backdrop-filter: blur()` no es parte del lenguaje product.
-
-**Deck:** Slides son flat. Sin sombras de card en slides de fondo oscuro. Stat cards inset en slides claros pueden usar `shadows.sm`.
 
 ---
 
@@ -562,7 +441,7 @@ Radios ajustados — funcionales, no amigables:
 | `rounded.2xl` | 12px | Large panels, modals |
 | `rounded.full` | 9999px | Avatars, live-status dot, tag pills |
 
-Nunca usar 20px+ de radio — se leen como consumer/friendly, lo que contradice la personalidad experta/analítica del sistema. En deck: cero radio para fondos full-bleed (aurora) o 8–12px para stat cards inset en slides claros.
+Nunca usar 20px+ de radio — se leen como consumer/friendly, lo que contradice la personalidad experta/analítica del sistema.
 
 ---
 
@@ -592,9 +471,9 @@ Todas las animaciones usan `cubic-bezier(0.16, 1, 0.3, 1)` (ease-out-expo) — d
 
 Tres niveles. Todos comparten: radio 6px, fuente `ui-body-strong`, transición de 150ms en color (no opacidad), focus ring `ring-2 ring-primary ring-offset-1`, estado disabled `opacity-50 cursor-not-allowed`.
 
-- **Primary:** Relleno EPA Blue, texto blanco. Hover: `primary-dark`. El único botón que domina la vista. `surface: product`.
-- **Secondary:** Fondo transparente, border `primary` (0.5px), texto `primary`. Mismo tamaño que primary — usar cuando ya existe una acción primary en pantalla. `surface: product`.
-- **Ghost:** Transparente, texto `content-secondary`, sin border. Acciones terciarias (filtro, ordenar, descartar). Hover: fondo `surface-tertiary`. `surface: product`.
+- **Primary:** Relleno EPA Blue, texto blanco. Hover: `primary-dark`. El único botón que domina la vista.
+- **Secondary:** Fondo transparente, border `primary` (0.5px), texto `primary`. Mismo tamaño que primary — usar cuando ya existe una acción primary en pantalla.
+- **Ghost:** Transparente, texto `content-secondary`, sin border. Acciones terciarias (filtro, ordenar, descartar). Hover: fondo `surface-tertiary`.
 
 ### Status Pills
 
@@ -656,9 +535,7 @@ Fondo `surface-tertiary`, fuente `ui-mono` (IBM Plex Mono 12px), radio `rounded.
 
 ## Iconography
 
-Lucide (`lucide-react`) es el único set de íconos permitido en product UI — 16px por defecto, stroke-width 1.5, color match con el texto de contexto. No usar estilos filled. No escalar Lucide por encima de 24px.
-
-No usar íconos inline en decks — usar motivos de marca basados en imagen del directorio `assets/` (marca Penrose, fondos aurora, patrones de puntos).
+Lucide (`lucide-react`) es el único set de íconos permitido — 16px por defecto, stroke-width 1.5, color match con el texto de contexto. No usar estilos filled. No escalar Lucide por encima de 24px.
 
 ---
 
@@ -683,7 +560,7 @@ Todo el copy de UI va en **español, sentence case, segunda persona informal** (
 **Puntuación en UI:**
 - Labels y botones: sin punto final
 - Empty states, help text, descripciones: con punto final
-- Nunca ALL-CAPS en oraciones o CTAs — uppercase solo para `ui-caps` y `d-eyebrow`
+- Nunca ALL-CAPS en oraciones o CTAs — uppercase solo para `ui-caps`
 - No usar "usted" — siempre `tú`
 
 **Voz:** Directa, experta, sin relleno. "Ver reporte" no "Haz clic aquí para ver tu reporte". "Sin datos" no "Parece que no hay datos disponibles en este momento".
@@ -694,32 +571,27 @@ Todo el copy de UI va en **español, sentence case, segunda persona informal** (
 
 **Colores:**
 - Usar `primary` (#003AD6) a saturación completa. Nunca tintarlo para decoración.
-- Usar `accent-cyan` y `accent-magenta` exclusivamente en deck y brand — nunca en product UI.
+- No usar magenta (#DB0043) ni cyan (#00E8FF) — no son parte de este sistema.
 - No usar negro puro (#000000). Usar `ink` (#0E141E) para los momentos más oscuros.
-- No usar gradientes de fondo en product UI. Los gradientes son exclusivamente un motivo de deck.
+- No usar gradientes de fondo — no son parte de este sistema.
 - Siempre usar el trío semántico completo (bg + border + text) para pills y banners — nunca un solo color para las tres propiedades.
 - No usar `backdrop-filter: blur()` — no es parte del lenguaje product.
 
 **Tipografía:**
-- Aplicar letter-spacing negativo a todo el tipo product desde 13px hacia arriba — es la firma visual.
-- No usar más de dos font weights en una sola pantalla product.
-- Reservar uppercase para `ui-caps` y `d-eyebrow` únicamente. Nunca ALL-CAPS en oraciones o CTAs.
-- No usar itálica en product UI. Existe en la fuente pero no es parte del sistema.
+- Aplicar letter-spacing negativo a todo el tipo desde 13px hacia arriba — es la firma visual.
+- No usar más de dos font weights en una sola pantalla.
+- Reservar uppercase para `ui-caps` únicamente. Nunca ALL-CAPS en oraciones o CTAs.
+- No usar itálica. Existe en la fuente pero no es parte del sistema.
 - Usar `font-variant-numeric: tabular-nums` en cada valor métrico, columna numérica de tabla, e ID.
 
 **Bordes y separación:**
-- Usar hairline borders de 0.5px para toda separación de cards, panels, e inputs en product UI.
+- Usar hairline borders de 0.5px para toda separación de cards, panels, e inputs.
 - No usar borders de 1px — se leen más pesados de lo diseñado.
 - Los shadows son para hover lift únicamente — los borders son el separador primario.
 
 **Formas:**
 - No mezclar radios redondeados (≥12px) y ajustados (≤6px) en el mismo componente.
 - No usar radios de 20px+ en ningún lugar — contradicen la personalidad experta/analítica.
-
-**Superficies:**
-- No usar componentes product (button-primary, pills, inputs) en slides de deck.
-- No usar gradientes aurora ni accent-cyan en product UI.
-- Identificar siempre la superficie destino antes de generar cualquier componente.
 
 **Z-index:**
 - Usar siempre los tokens de z-index definidos: topbar (100), dropdown (200), modal (300), toast (400).
@@ -739,6 +611,5 @@ Todo el copy de UI va en **español, sentence case, segunda persona informal** (
 - Humanizar números grandes: `1.2K`, `340K`, `2.3M`. Nunca `1200` en bruto.
 
 **Iconografía:**
-- Usar Lucide (`lucide-react`) exclusivamente en product — 16px, stroke-width 1.5.
+- Usar Lucide (`lucide-react`) exclusivamente — 16px, stroke-width 1.5.
 - No usar estilos filled ni escalar Lucide por encima de 24px.
-- No usar íconos inline en decks.

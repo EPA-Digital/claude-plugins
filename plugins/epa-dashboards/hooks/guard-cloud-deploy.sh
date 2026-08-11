@@ -12,8 +12,9 @@
 # `epa-dashboard` en bdd-epa-digital y sobrescribió a Newton (la intranet de EPA).
 #
 # Filosofía: el discriminador NO es la propiedad (todo se despliega con la misma
-# identidad), sino EXISTENCIA + NAMESPACE. Servicios de IA viven en `*-vibe`;
-# los nombres limpios los despliega una persona con su propia identidad gcloud.
+# identidad), sino EXISTENCIA + NAMESPACE. Todo dashboard EPA usa el sufijo
+# "-vibe" en el nombre de su servicio — siempre, incluida producción, sin
+# excepción. No es solo una señal de "esto lo desplegó una IA".
 #
 # Mecánica: lee el tool_input.command de stdin (JSON). Si detecta un deploy que
 # viola la convención → exit 2 + razón en stderr (bloquea y se la muestra a Claude).
@@ -83,9 +84,8 @@ if [ -n "$reasons" ]; then
     printf '%s' "$reasons"
     echo ""
     echo "Cómo proceder:"
-    echo "  - Servicio de IA: epa-turing + sufijo ${SUFFIX} (ej. mi-servicio${SUFFIX})."
-    echo "  - Producto curado con nombre limpio: que lo despliegue una persona con su"
-    echo "    propia identidad gcloud (no analytics@epa.digital), fuera de Claude."
+    echo "  - epa-turing + sufijo ${SUFFIX} — siempre, incluida producción."
+    echo "    Ej: {cliente}-dashboard-web${SUFFIX}."
   } >&2
   exit 2
 fi

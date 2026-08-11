@@ -1,27 +1,28 @@
-# CLAUDE.md — EPA Digital · epa-turing
+# CLAUDE.md — EPA Digital · epa-dashboards
 
-Contexto maestro para cualquier sesión de Claude Code que toque infraestructura,
-código o assets de EPA Digital.
+Contexto maestro para cualquier sesión de Claude Code que toque este repo
+o un dashboard generado con él.
+
+**Qué es este repo:** el marketplace de un solo plugin, `epa-dashboards`,
+exclusivo para generar y estandarizar dashboards de EPA Digital. Invariantes
+al mantenerlo: `marketplace.json` tiene **una** entrada, el plugin tiene
+**5 skills** (`epa-frontend`, `epa-bq`, `epa-design`, `epa-deploy`,
+`epa-safe-vibe`) + 3 comandos + 1 agente + 1 hook en `hooks/` (raíz del
+plugin), y **este repo no hospeda paquetes npm** — si algún día el kit
+`@epa/*` de la plataforma de dashboards quiere vivir aquí, es una decisión
+deliberada del equipo, no una deriva. Validar siempre con
+`claude plugin validate .` antes de un PR.
 
 ---
 
 ## Contexto de la organización
 
-**EPA Digital** es una agencia de marketing de performance con HQ en LATAM
-(~170 personas). Trabajo se divide en dos grandes superficies:
-
-1. **Productos internos** — **Pitágoras** (capa de integración centralizada
-   a APIs de medios y analytics: Google Ads, Meta, Universal Analytics, GA4,
-   Bing, TikTok, LinkedIn y DV360). Único producto en producción. Otros
-   productos están en desarrollo o exploración y no deben asumirse como
-   existentes.
-2. **Operación de cliente** — campañas, dashboards, atribución y alertas para
-   los clientes activos de la agencia. Cartera actual incluye (entre otros):
-   ABInBev, AMVO, Coppel, Chedraui, Farmacias del Ahorro, Innovasport, Nestlé
-   y UVM.
-
-Todo lo que no sea local del laptop del desarrollador vive en GCP, en un solo
-proyecto compartido.
+**EPA Digital** es una agencia de marketing de performance con HQ en
+LATAM (~170 personas). Cartera de clientes activos (entre otros): ABInBev,
+AMVO, Coppel, Chedraui, Farmacias del Ahorro, Innovasport, Nestlé y UVM —
+orientación solamente, resolver siempre el dataset real por lookup (ver
+más abajo), nunca asumir que un cliente tiene dashboard o dataset por
+estar en esta lista.
 
 ---
 
@@ -34,182 +35,143 @@ Project path:    projects/689827400521
 Región default:  us-central1
 ```
 
-**Casi todo runtime y storage de productos/clientes vive en este proyecto.**
-Excepciones notables:
+**Casi todo runtime de dashboards vive en `epa-turing`.** Excepciones
+notables:
 
 ```
-bdd-epa-digital      ← BigQuery canónico de la agencia — un dataset granular
-                       por cliente: {cliente}_reporting (medios pagados +
-                       analytics, vistas por plataforma). Resolver el nombre
-                       exacto por lookup en INFORMATION_SCHEMA.SCHEMATA, no
-                       asumir el sufijo. Fuente de verdad para dashboards.
-                       DEPRECADO: dataset epa_agency_reports (cross-cliente
-                       consolidado) — ya no se usa.
+bdd-epa-digital      ← BigQuery canónico de la agencia — un dataset por
+                       cliente: {cliente}_reporting. Resolver el nombre
+                       exacto por lookup en INFORMATION_SCHEMA.SCHEMATA,
+                       no asumir el sufijo. NUNCA desplegar servicios aquí
+                       (ver incidente Newton, epa-safe-vibe).
 
 ga360-250517         ← BigQuery exclusivo de Coppel (dataset Epa_dataset)
                        Tablas PMBF_*, vienen desde Domo.
                        NO usar salvo necesidad explícita confirmada con el usuario.
 ```
 
-El aislamiento entre productos y clientes en `epa-turing` ocurre por
-convenciones de naming, IAM y datasets, no por proyectos GCP separados.
+---
+
+## Modelo de datos
+
+```
+bdd-epa-digital.{cliente}_reporting   ← fuente de verdad. Granular por
+                                         cliente y plataforma de medios.
+epa-turing.{cliente}_etl.{tabla}      ← tablas del ETL centralizado (en
+                                         construcción por Datos e IA).
+ga360-250517.Epa_dataset              ← excepción Coppel (Domo).
+```
+
+**DEPRECADO:** `bdd-epa-digital.epa_agency_reports`. No existe reemplazo
+cross-cliente — un rollup entre varios clientes se escala a Datos e IA.
 
 ---
 
 ## Stack canónico
 
 ```
-Compute:         Cloud Run (servicios) + Cloud Run Jobs (batch) + Cloud Scheduler
-Datos analíticos: BigQuery
-                  - Canónico por cliente: `bdd-epa-digital.{cliente}_reporting`
-                    (medios pagados + analytics, vistas por plataforma)
-                  - Tablas del ETL centralizado (en construcción):
-                    `epa-turing.{cliente}_etl.{tabla}`
-                  - Ad-hoc por producto/cliente: `epa-turing.{cliente}_{tipo}`
-                  - Excepción Coppel (resultados Domo): `ga360-250517.Epa_dataset`
-Documentos / estado: Firestore Native (colecciones {Producto}{Entidad})
-Archivos:        GCS (buckets epa-{proposito}-prod)
-Secretos:        Secret Manager (secrets en PascalCase)
-Mensajería:      Pub/Sub
-Automatización visual: n8n (epa-digital.app.n8n.cloud)
-Dashboards:      Next.js 15 + Tailwind CSS en Cloud Run (stack preferido)
-APIs Python:     FastAPI + uvicorn
-APIs TypeScript: Hono o Next.js API routes
-Lenguajes:       Python 3.11+, TypeScript con Node 20+
+Frontend:        Next.js 15 App Router + Tailwind CSS + pnpm, en Cloud Run
+Datos:            BigQuery (bdd-epa-digital.{cliente}_reporting)
 CI/CD:           GitHub Actions → Artifact Registry → Cloud Run
-Branding:        EPA Blue #003AD6, IBM Plex Sans, design system propio
+Branding:        EPA Blue #003AD6, IBM Plex Sans/Mono
 ```
 
-Detalles completos: ver el plugin `epa-stack`.
+Detalles completos: skill `epa-frontend` del plugin.
 
 ---
 
-## Pitágoras — la regla más importante
+## Pitágoras — contexto mínimo
 
-**Pitágoras** es la capa de integración centralizada para datos de medios y
-analytics. Soporta 8 providers hoy: **Google Ads, Meta (Facebook + Instagram),
-Universal Analytics, GA4, Bing, TikTok, LinkedIn y DV360**.
-
-**Acceso directo a Pitágoras DEPRECADO para apps, dashboards, reportes y
-vibecoding en general.** El único consumidor de la API REST de Pitágoras es el
-**ETL centralizado** (en construcción, workstream del área de Datos e IA).
-Todo lo demás lee los datos ya materializados en BigQuery
-(`bdd-epa-digital.{cliente}_reporting`) — nunca llama a Pitágoras directo.
-
-```
-API REST:    https://pitagoras-api-229508468478.us-central1.run.app
-             auth: token bearer vía POST /api/v1/customers
-             Uso: EXCLUSIVO del ETL centralizado.
-MCP Server:  https://pitagoras-api-2yl4a3ya6a-uc.a.run.app/mcp
-             DEPRECADO — nombre de producto Tokyo. No usar, ni para
-             vibecoding interactivo ni para runtime.
-```
-
-Acceder directo a las APIs de plataforma (Meta, Google Ads, etc., sin pasar
-por Pitágoras):
-- Duplica código de auth y paginación entre productos.
-- Expone tokens en repos.
-- Rompe el historial centralizado de datos.
-- Descarga el control de rate-limits a cada servicio.
-
-Si el dato que necesitas no está en `{cliente}_reporting`, escala a
-datos@epa.digital — no lo resuelvas llamando a Pitágoras tú mismo.
-
-Detalle técnico (uso interno del ETL): ver `pitagoras.md` en
-`epa-stack/references/`.
+Pitágoras es la capa de integración de medios de la agencia. **Un
+dashboard nunca la llama** — su único consumidor es el ETL centralizado.
+El MCP de Pitágoras (Tokyo) está deprecado. Si un dato de medios no está
+en `{cliente}_reporting`, se escala a `datos@epa.digital`.
 
 ---
 
 ## Recursos protegidos — bloqueo total
 
-NO modificar, eliminar ni sobreescribir sin autorización del **área de Datos e IA**
-(`datos@epa.digital`):
+NO modificar, eliminar ni sobreescribir sin autorización del **área de
+Datos e IA** (`datos@epa.digital`):
 
 ```
 Firestore (bdd-epa-digital — nombres en lowercase, son colecciones legacy):
-  users          ← autenticación y permisos de todos los usuarios
-  clients        ← cuentas y credenciales de todos los clientes activos
-  budgets        ← presupuesto y pacing por cuenta
+  users, clients, budgets
 
 Secret Manager (epa-turing):
-  FacebookAccessToken
-  TiktokToken
-  GoogleAdsYAML
-  BingAccessTokenEpa
+  FacebookAccessToken, TiktokToken, GoogleAdsYAML, BingAccessTokenEpa
+
+Cloud Run (proyectos varios):
+  epa-dashboard (Newton, en bdd-epa-digital) · pitagoras-api (epa-turing)
+  — cualquier servicio SIN sufijo -vibe puede ser producción real.
 ```
 
-Detalles: `epa-safe-vibe/references/protected-resources.md`.
+Detalles y procedimientos de recuperación:
+`plugins/epa-dashboards/skills/epa-safe-vibe/references/protected-resources.md`.
 
 ---
 
-## Plugins de este repo
+## El plugin de este repo
 
-Este repo (`epa-digital/claude-plugins`) provee 6 plugins oficiales que definen
-las convenciones EPA. Si los tienes instalados, Claude las aplica automáticamente:
+`epa-dashboards` — un solo plugin, 5 skills, se activan solas según el
+contexto:
 
-| Plugin | Propósito | Activación |
-|---|---|---|
-| `epa-naming` | Convenciones de naming en GCP, GitHub, código | Crear o renombrar cualquier recurso |
-| `epa-safe-vibe` | Guardrails de seguridad y bloqueos | Operaciones destructivas, credenciales, APIs de medios |
-| `epa-stack` | Árbol de decisión de arquitectura + boilerplate | Construir algo nuevo |
-| `epa-design` | Design system (tokens, componentes, copy) | Cualquier UI o presentación |
-| `epa-cicd` | Deploy a Cloud Run vía GitHub Actions | Subir app a producción |
-| `epa-dashboards` | Stack de frontend, convenciones de BigQuery por cliente, planificación, QA de diseño y seguridad para dashboards | Construir o modificar un dashboard |
+| Skill | Cubre |
+|---|---|
+| `epa-frontend` | Stack cerrado (Node 22, pnpm, Next.js, TS estricto, Tailwind, Recharts), auth |
+| `epa-bq` | Convenciones de `{cliente}_reporting`, control de costo |
+| `epa-design` | Design system EPA (tokens, componentes, copy) |
+| `epa-deploy` | Deploy a Cloud Run vía GitHub Actions |
+| `epa-safe-vibe` | Guardrails de seguridad + hook de deploy |
+
+Más 3 comandos (`/plan-dashboard`, `/client-context`, `/critique-epa`,
+`/migrate-to-epa`) y el agente `security-reviewer`.
 
 Instalación:
 ```
-/plugin marketplace add epa-digital/claude-plugins
-/plugin install epa-naming@epa-plugins
-/plugin install epa-safe-vibe@epa-plugins
-/plugin install epa-stack@epa-plugins
-/plugin install epa-design@epa-plugins
-/plugin install epa-cicd@epa-plugins
-/plugin install epa-dashboards@epa-plugins
+claude plugin marketplace add EPA-Digital/claude-plugins
+claude plugin install epa-dashboards@epa-plugins
 ```
 
-O dejar que `extraKnownMarketplaces` y `enabledPlugins` en
+O dejar que `extraKnownMarketplaces`/`enabledPlugins` en
 `.claude/settings.json` lo hagan automáticamente al confiar en el folder.
 
 ---
 
-## Reglas de oro para vibecoding en epa-turing
+## Reglas de oro para dashboards en epa-turing
 
-1. **Antes de crear recursos, revisar epa-naming.** Un nombre fuera de patrón
-   rompe el inventario y dificulta el cobro por cliente.
-2. **Datos de medios → BigQuery (`{cliente}_reporting`) siempre.** Nunca
-   directo a Meta/Google Ads/TikTok/Bing, y ya no directo a Pitágoras
-   tampoco — eso quedó exclusivo del ETL centralizado.
-3. **Credenciales → Secret Manager.** Nunca en `.env` commiteado, nunca en
-   strings literales.
-4. **Variables de entorno con prefijo `EPA_`.**
-5. **Queries con `LIMIT` o `maximum_bytes_billed`.** Sin tope, una query
+1. **Datos de medios → siempre `{cliente}_reporting` en BigQuery.** Nunca
+   directo a Meta/Google Ads/TikTok/Bing ni a Pitágoras.
+2. **Toda query con `LIMIT` o `maximumBytesBilled`.** Sin tope, una query
    accidental puede costar cientos de dólares.
-6. **Sheets / Apps Script no son base de datos.** Para apps usa Firestore o
-   BigQuery.
-7. **Para deploys: GitHub Actions + Cloud Run.** No hay Compute Engine VMs
-   manuales.
-8. **Para UI: design system EPA.** No mezclar Inter/Roboto con IBM Plex.
+3. **Credenciales → Secret Manager vía `--set-secrets`.** Nunca en `.env`
+   commiteado, nunca en strings literales.
+4. **Variables de entorno:** `EPA_*` en servidor, `NEXT_PUBLIC_*` en
+   cliente.
+5. **Todo servicio de Cloud Run termina en `-vibe`** — siempre, incluida
+   producción. Nunca desplegar en `bdd-epa-digital` ni `ga360-250517`.
+6. **UI = design system EPA.** IBM Plex, `#003AD6`, sin CSS custom, sin
+   componentes hechos a mano.
 
 ---
 
 ## Contactos
 
 ```
-Infraestructura, recursos protegidos, gasto GCP:   Área de Datos e IA — datos@epa.digital
-Productos y desarrollo:                             Equipo de Desarrollo
-Datos y modelado de BigQuery / Firestore:           Área de Datos e IA — datos@epa.digital
-Diseño y design system:                             Área de Diseño
+Infraestructura, datos, gasto GCP:   Área de Datos e IA — datos@epa.digital
+Diseño y design system:              Área de Diseño
+Productos y desarrollo:              Equipo de Desarrollo
 ```
 
 ---
 
 ## Si algo no está documentado
 
-1. Revisar el plugin que aplica (epa-naming / epa-stack / epa-cicd / epa-design /
-   epa-safe-vibe / epa-dashboards).
-2. Buscar un caso similar ya implementado en epa-turing y replicar.
-3. Si no hay precedente: preguntar al área de Datos antes de crear el recurso
-   o tomar la decisión.
+1. Revisar la skill del plugin `epa-dashboards` que aplique.
+2. Buscar un caso similar ya implementado y replicar.
+3. Si no hay precedente: preguntar al área de Datos antes de crear el
+   recurso o tomar la decisión.
 
-NUNCA improvisar nombres, ubicaciones de recursos o accesos directos a APIs de
-plataforma. Las decisiones de arquitectura las toma el equipo, no la sesión.
+NUNCA improvisar nombres, ubicaciones de recursos o accesos directos a
+APIs de plataforma. Las decisiones de arquitectura las toma el equipo, no
+la sesión.
