@@ -1,33 +1,23 @@
 ---
 name: epa-design
 description: >
-  Design system oficial de EPA Digital. Activar SIEMPRE que el usuario vaya a
-  construir o modificar interfaces (dashboards, webapps, landings, decks, slides,
-  reportes visuales) o cualquier output con presencia visual: HTML, JSX/TSX, CSS,
-  componentes UI, copy de UI, tipografía, paleta, espaciado, animaciones.
-  También activar ante términos como "diseño", "branding", "tokens", "componente",
-  "UI", "Tailwind", "estilo EPA", "color azul EPA", "deck", "slide", "presentación"
-  o cuando el usuario pida "que se vea bonito" o "estilo agencia". Provee tokens
-  exactos (colores, tipografía IBM Plex, espaciado, sombras), componentes copy-paste
-  y guía de copy en español.
+  Design system oficial de EPA Digital para dashboards. Activar SIEMPRE que
+  el usuario vaya a construir o modificar interfaces de dashboard, o
+  cualquier output con presencia visual: HTML, JSX/TSX, CSS, componentes UI,
+  copy de UI, tipografía, paleta, espaciado, animaciones. También activar
+  ante términos como "diseño", "branding", "tokens", "componente", "UI",
+  "Tailwind", "estilo EPA", "color azul EPA" o cuando el usuario pida "que
+  se vea bonito" o "estilo agencia". Provee tokens exactos (colores,
+  tipografía IBM Plex, espaciado, sombras), componentes copy-paste y guía
+  de copy en español.
 ---
 
-# EPA Design System
+# EPA Design System — versión product (dashboards)
 
-Sistema de diseño oficial de EPA Digital. Cubre dos superficies que NO se mezclan:
-
-```
-PRODUCT SURFACE          DECK / BRAND SURFACE
-─────────────────        ─────────────────────
-Dashboards internos      Presentaciones a cliente
-Apps internas y de       QBRs, case studies
-vibecoding               Landing de marca
-13px body por default    96px hero por default
-Densidad alta            Espaciado dramático
-Sin acentos magenta      Acentos magenta/cyan permitidos
-```
-
-Antes de escribir CSS, confirmar superficie. Aplicar tokens del bloque correcto.
+> Esta es la versión **product-only** del design system, para dashboards.
+> La spec completa de la agencia (que también cubre presentaciones/deck)
+> la mantiene el área de Diseño — si necesitas un slide o una presentación
+> a cliente, esa superficie no vive en este plugin.
 
 ---
 
@@ -35,11 +25,10 @@ Antes de escribir CSS, confirmar superficie. Aplicar tokens del bloque correcto.
 
 ```
 Color anchor:     EPA Blue  #003AD6
-Tipografía:       IBM Plex Sans (UI + deck) · IBM Plex Mono (números, code)
+Tipografía:       IBM Plex Sans (UI) · IBM Plex Mono (números, code)
 Voz UX:           Español LATAM, segunda persona informal (tú), sentence case
 Border radius:    md=6px (default) · lg=8px (panels) · full (pills, dot)
 Densidad UI:      13px body, 22px h1, hairlines 0.5px, espaciado 8/16/24/40
-Densidad Deck:    18px body, hero 96px, espaciado 24/40/72, gradientes aurora
 Animación:        150ms hover, 300ms paneles, 800ms entradas
 ```
 
@@ -65,11 +54,11 @@ gana DESIGN.md.
 ## Reglas no-negociables
 
 ### Color
-- **Solo `#003AD6`** como azul EPA en product. Nada de `#0040FF`, `#0033CC`,
+- **Solo `#003AD6`** como azul EPA. Nada de `#0040FF`, `#0033CC`,
   `#003ACC` ni variantes "parecidas". Si el código tiene un azul que no está
   en `tokens.md`, está mal.
-- **Magenta `#DB0043` y cyan `#00E8FF`** existen solo en deck. Bloqueados en
-  product UI.
+- **Magenta `#DB0043` y cyan `#00E8FF` están prohibidos** en cualquier UI de
+  dashboard.
 - Los semánticos (success/warning/danger/info) son fijos. No reemplazar con
   paletas tipo "tailwind default green-500".
 
@@ -77,7 +66,7 @@ gana DESIGN.md.
 - **IBM Plex Sans** en todo. NO Inter, NO Roboto, NO system-ui sin Plex.
   Si Plex no está cargado, agregar `@import` o `<link>` antes de cualquier UI.
 - **IBM Plex Mono** para cifras tabulares y bloques de código.
-- En product, `body = 13px`. Densidad alta es intencional, no error.
+- `body = 13px`. Densidad alta es intencional, no error.
 
 ### Layout
 - Hairlines: `border: 0.5px solid var(--border)`. NO `1px` por default.
@@ -98,22 +87,21 @@ gana DESIGN.md.
 
 ## Flujo recomendado para una nueva UI
 
-1. **Identificar superficie:** product o deck.
-2. **Cargar tokens:** copiar el bloque CSS vars o Tailwind config de `tokens.md`
-   al proyecto.
-3. **Cargar fuente:** asegurarse de que IBM Plex Sans + Plex Mono estén
+1. **Cargar tokens:** copiar el bloque CSS vars o Tailwind config de
+   `tokens.md` al proyecto.
+2. **Cargar fuente:** asegurarse de que IBM Plex Sans + Plex Mono estén
    disponibles (Google Fonts, self-hosted, o `@fontsource/ibm-plex-sans`).
-4. **Construir con componentes existentes** de `components.md`. NO inventar
+3. **Construir con componentes existentes** de `components.md`. NO inventar
    buttons/cards/pills nuevos antes de revisar este archivo.
-5. **Escribir copy con `copy.md`** abierto al lado.
-6. **Verificar** contra el checklist al final de este SKILL antes de cerrar el
+4. **Escribir copy con `copy.md`** abierto al lado.
+5. **Verificar** contra el checklist al final de este SKILL antes de cerrar el
    ticket.
 
 ---
 
 ## Patrones específicos de EPA
 
-### KPI cards (product)
+### KPI cards
 - Border radius: `xl` (10px).
 - Número grande en IBM Plex Mono, 36–48px.
 - Delta abajo con `▲` o `▼` y color semántico.
@@ -129,13 +117,6 @@ gana DESIGN.md.
 - Hairline 0.5px entre rows.
 - Hover row: `var(--surface-tertiary)` (#F5F5F5).
 - Números en Plex Mono, alineación derecha, `tabular-nums`.
-
-### Slides / Deck
-- Background: gradiente aurora `--primary-deepest` → `--primary-deep`
-  → `--primary-bright`.
-- Title: `d-title` (70px/700, letter-spacing -1.2px).
-- Eyebrow: `d-eyebrow` (12px/600, uppercase, letter-spacing 1.6px).
-- Acentos cyan o magenta solo aquí.
 
 ---
 
@@ -156,13 +137,15 @@ Easing por default: `cubic-bezier(0.4, 0, 0.2, 1)` (Material standard).
 
 ```
 ✗ Mezclar Inter o Roboto con Plex
-✗ Usar magenta o cyan en product UI
-✗ Border radius >12px en product (se lee "consumer", no "enterprise")
+✗ Usar magenta #DB0043 o cyan #00E8FF en cualquier UI
+✗ Border radius >12px (se lee "consumer", no "enterprise")
 ✗ Sombras tipo Tailwind default (shadow-md, shadow-xl) — usar las de tokens
-✗ Botones con esquinas pill en product (solo en pills/badges)
+✗ Botones con esquinas pill (solo en pills/badges)
 ✗ ALL CAPS fuera de eyebrows y caps tokens
 ✗ Colores hex inline en JSX/HTML — siempre usar var() o token
-✗ Espaciado fuera de la escala (ej. 13px, 18px, 27px)
+✗ Espaciado fuera de la escala (ej. 13px, 18px, 27px como padding/margin/gap
+  — 13px y 18px SÍ son tamaños válidos de tipografía, la regla es sobre
+  espaciado, no sobre font-size)
 ✗ Copy en inglés en interfaces de cliente español sin razón explícita
 ✗ Animaciones >800ms en interacciones de UI
 ```
@@ -174,7 +157,7 @@ Easing por default: `cubic-bezier(0.4, 0, 0.2, 1)` (Material standard).
 ```
 TOKENS
 [ ] Solo colores de tokens.md (sin hex inline)
-[ ] IBM Plex Sans cargado, body 13px en product / 18px en deck
+[ ] IBM Plex Sans cargado, body 13px
 [ ] Border radius dentro de la escala (4/6/8/10/12/full)
 [ ] Espaciado dentro de la escala (4/8/16/24/40/72)
 
@@ -197,9 +180,10 @@ ACCESIBILIDAD
 
 ---
 
-## Cuándo escalar al área de Datos / Diseño
+## Cuándo escalar al área de Diseño
 
 - Cliente nuevo sin paleta secundaria definida.
-- Componente que no existe en `components.md` y se va a usar en >1 producto.
+- Componente que no existe en `components.md`.
 - Discrepancia entre lo que pide el cliente y los tokens (no improvisar — escalar).
 - Cualquier propuesta de cambiar el azul EPA o la tipografía base.
+- Cualquier necesidad de presentación/deck — fuera de alcance de este plugin.

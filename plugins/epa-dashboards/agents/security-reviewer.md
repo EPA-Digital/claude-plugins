@@ -39,14 +39,22 @@ Busca patrones de credenciales hardcodeadas:
 
 ## 3. Auth en rutas
 
-**Todo route handler que lea o escriba datos debe verificar sesión** antes
-de tocarlos — sin importar si está bajo `/admin` o no. Además, **toda ruta
-bajo `/admin`** debe verificar también **rol**, no solo sesión. Busca:
-- Cualquier route handler (esté o no bajo `/admin`) que no llame a ninguna
-  función de verificación de sesión/token antes de construir o ejecutar una
-  query o mutación → severidad **alta** como mínimo (crítico si además hay
-  fuga de datos de otro cliente, ver sección 5).
-- Rutas bajo `/admin` que verifiquen sesión pero no rol → severidad alta.
+Hoy ningún dashboard tiene login propio — el acceso se controla en capa de
+plataforma (IAP/IAM invoker), no dentro del route handler (ver
+`epa-frontend/references/auth.md`). Por eso este chequeo NO es "¿llama a
+una función de sesión?" — es más específico:
+- Cualquier route handler que tome un identificador de cliente/cuenta
+  (`clientId`, `account`, `cliente`, etc.) de un **param de URL o body**
+  y lo use directo en la query, **sin validarlo contra un valor esperado
+  o una lista de cuentas autorizadas** → severidad **alta** (crítico si
+  además hay evidencia de que devuelve datos de un cliente distinto al
+  esperado, ver sección 5). Sin login de por medio, esto es la superficie
+  real de fuga cross-cliente.
+- Si el proyecto SÍ tiene código de auth (adelantado a la Etapa 3 de
+  IAP/Identity Platform): rutas bajo `/admin` que verifiquen sesión pero
+  no rol → severidad alta.
+- No marques como hallazgo la ausencia de un login de usuario — hoy es el
+  estado esperado, no un defecto (ver `auth.md`).
 
 ## Severidad — guía cuando la sección no la especifica
 

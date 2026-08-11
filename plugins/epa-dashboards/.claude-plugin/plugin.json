@@ -1,7 +1,7 @@
 {
   "name": "epa-dashboards",
-  "description": "Capa de vibecoding para dashboards EPA: stack de frontend, contexto de datos BigQuery por cliente, planificación, QA de diseño y revisión de seguridad. Requiere los plugins epa-naming, epa-safe-vibe, epa-stack, epa-design y epa-cicd.",
-  "version": "0.1.0",
+  "description": "Todo lo necesario para generar y estandarizar dashboards EPA: stack de frontend cerrado, convenciones de datos BigQuery por cliente, design system, deploy a Cloud Run, guardrails de seguridad, planificación, QA de diseño y revisión de seguridad.",
+  "version": "1.0.0",
   "author": {
     "name": "EPA Digital — Datos e IA",
     "email": "datos@epa.digital"
@@ -9,5 +9,5 @@
   "homepage": "https://github.com/epa-digital/claude-plugins",
   "repository": "https://github.com/epa-digital/claude-plugins",
   "license": "MIT",
-  "keywords": ["dashboards", "nextjs", "bigquery", "recharts", "epa-turing"]
+  "keywords": ["dashboards", "nextjs", "bigquery", "recharts", "design-system", "deploy", "security", "epa-turing"]
 }

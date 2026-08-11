@@ -29,24 +29,16 @@ esto.
 [ ] Claude Code instalado + login con tu cuenta @epa.digital
 [ ] git instalado + gh auth login
 [ ] Node 22 LTS + corepack enable
+[ ] pnpm instalado (corepack enable pnpm)
 [ ] gcloud CLI + gcloud auth application-default login
 [ ] claude plugin marketplace add EPA-Digital/claude-plugins
-    + instalar los 6 plugins (o abrir un repo EPA que los auto-instale)
+    + claude plugin install epa-dashboards@epa-plugins
+    (o abrir un repo de dashboard que ya lo auto-instale)
 ```
 
-Los 6 plugins:
-
-```
-claude plugin install epa-naming@epa-plugins
-claude plugin install epa-safe-vibe@epa-plugins
-claude plugin install epa-stack@epa-plugins
-claude plugin install epa-design@epa-plugins
-claude plugin install epa-cicd@epa-plugins
-claude plugin install epa-dashboards@epa-plugins
-```
-
-Verifica que quedaron los 6 con check verde antes de seguir — ver el README
-del repo, sección "Instalación", para el detalle paso a paso si algo falla.
+Verifica que quedó instalado con check verde antes de seguir — ver el
+README del repo, sección "Instalación", para el detalle paso a paso si
+algo falla.
 
 ---
 

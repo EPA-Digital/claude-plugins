@@ -95,8 +95,8 @@ dashboard debe mostrar **"Datos al {fecha}"** usando la fecha real de
   algunas cientos de millones — ver `references/schema-google-transfer.md`).
   Siempre filtro de fecha + `LIMIT` en exploración.
 - **Nunca `SELECT *` en código de producción.**
-- Toda query desde un route handler declara `maximum_bytes_billed` (ver
-  `epa-stack/references/bigquery-patterns.md`).
+- Toda query desde un route handler declara `maximumBytesBilled` (ver
+  `references/cost-and-access.md`).
 
 ---
 

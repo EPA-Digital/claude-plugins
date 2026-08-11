@@ -12,6 +12,15 @@ Cliente objetivo: `$1` (si no se dio, pídelo en la primera pregunta).
 `docs/dashboard-spec.md`. Codear empieza en una sesión aparte, después de
 que el usuario apruebe explícitamente el spec.
 
+## Paso 0 — Confirmar que no hay un esfuerzo en curso
+
+Antes de preguntar nada, recuérdale al usuario: confirmar con el área de
+Datos e IA (`datos@epa.digital`) que no exista ya un dashboard o un
+esfuerzo en curso para este cliente — evita construir por duplicado algo
+que ya está siendo trabajado. No es bloqueante (el usuario puede seguir
+sin haber confirmado todavía), pero debe quedar como pendiente explícito
+si no se confirmó.
+
 ## Paso 1 — Preguntar (máximo 5 preguntas, en un solo mensaje, con opciones)
 
 1. **Cliente y nombre del dashboard** (si no vino en `$1`, o para confirmar

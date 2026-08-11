@@ -82,8 +82,8 @@ GROUP BY 1, 2, 5, 6;
 Algunas vistas de Google Ads Data Transfer llegan a cientos de millones de
 filas (`ClickStats` y `Ad` en particular pueden superar los 500M–800M filas
 en cuentas con historial largo). Siempre filtrar por `segments_date` /
-`_DATA_DATE` y usar `LIMIT` en exploración — ver `epa-stack/references/
-bigquery-patterns.md` para los patrones de control de costo.
+`_DATA_DATE` y usar `LIMIT` en exploración — ver `references/
+cost-and-access.md` para los patrones de control de costo.
 
 ### ⚠️ Impression Share
 

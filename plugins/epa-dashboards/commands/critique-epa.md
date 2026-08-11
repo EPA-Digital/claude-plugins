@@ -15,16 +15,6 @@ específico, no se separan en tablas por archivo. La Fase B sí puede hablar
 del conjunto (ej. "el módulo no tiene skeleton en ninguno de sus 3
 componentes").
 
-## Paso 0 — Resolver la superficie antes de revisar nada
-
-`epa-design` distingue **product** (UI de dashboard) de **deck**
-(presentación) y tienen reglas **opuestas** en varios puntos (gradientes y
-cyan/magenta están prohibidos en product y son exclusivos/obligatorios en
-deck). Identifica cuál es antes de aplicar cualquier check de la Fase A —
-un dashboard es casi siempre superficie **product**, pero si `$1` es una
-slide o un export para presentación, es **deck** y las reglas de
-gradiente/color se invierten.
-
 ## Fase A — Compliance EPA (checklist objetiva, pass/fail por regla)
 
 Revisa cada regla y reporta pass/fail con `archivo:línea` del hallazgo.
@@ -44,8 +34,8 @@ Revisa cada regla y reporta pass/fail con `archivo:línea` del hallazgo.
    número o dato tabular.
    - No marques `13px` ni `18px` como "fuera de la escala" si aparecen
      como **tamaño de fuente** — son tamaños canónicos de la escala de
-     tipo de epa-design (`ui-body` 13px, `d-subtitle` 28px, etc.). La
-     regla de "espaciado fuera de la escala" aplica solo a propiedades de
+     tipo de epa-design (`ui-body` 13px, `ui-h2` 18px, etc.). La regla de
+     "espaciado fuera de la escala" aplica solo a propiedades de
      spacing/padding/margin/gap, no a `font-size`.
 
 3. **Copy:** español, sentence case, separadores correctos (`·`, `›`,
@@ -63,11 +53,10 @@ Revisa cada regla y reporta pass/fail con `archivo:línea` del hallazgo.
    específico, exige que la clave sea una de las conocidas y que el color
    sea consistente dentro del mismo dashboard.
 
-6. **Anti-patrones de epa-design** (solo si la superficie del paso 0 es
-   **product**): gradientes, glassmorphism (`backdrop-filter: blur()`),
-   dark-glow, magenta/cyan, border-radius >12px, sombras tipo Tailwind
-   default. Si la superficie es **deck**, estos mismos elementos son
-   correctos y no deben marcarse.
+6. **Anti-patrones de epa-design:** gradientes, glassmorphism
+   (`backdrop-filter: blur()`), dark-glow, magenta/cyan, border-radius
+   >12px, sombras tipo Tailwind default. Todos prohibidos sin excepción —
+   este plugin no cubre superficie deck/presentación.
 
 ## Fase B — Calidad UX (heurística)
 

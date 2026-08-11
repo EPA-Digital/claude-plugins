@@ -1,184 +1,143 @@
-# EPA Digital — Claude Code Plugins
+# EPA Digital — Plugin de Dashboards para Claude Code
 
-Plugins oficiales de **EPA Digital** para trabajar con Claude Code dentro del
-proyecto GCP `epa-turing`. Le dan a tu Claude el contexto institucional de la
-agencia: cómo se nombran las cosas, qué no se debe tocar, qué stack usar, cómo
-debe verse la UI y cómo se sube algo a producción.
+Este repositorio le enseña a tu Claude Code cómo construir dashboards para
+EPA Digital, siguiendo las reglas de la agencia: qué stack usar, de dónde
+salen los datos, cómo se ve el diseño, y cómo se sube a producción sin
+romper nada.
 
-> **¿Por qué existen estos plugins?**
-> Sin ellos, cada vez que pides ayuda a Claude tienes que explicarle desde cero
-> que somos EPA, que el proyecto se llama `epa-turing`, que las campañas de
-> medios pasan por Pitágoras, que la fuente real de datos es BigQuery (no
-> Sheets), y mil detalles más. Los plugins guardan todo ese contexto y se lo
-> dan a Claude automáticamente cuando lo necesita. Resultado: tu Claude
-> propone arquitecturas correctas desde el primer mensaje, te bloquea si vas
-> a cometer un error costoso (borrar Firestore, pegar credenciales en código)
-> y escribe UI con la paleta y tipografía oficiales de la agencia.
+Instalas **un solo plugin**. Después, cuando le pidas a Claude que te ayude
+con un dashboard, él ya sabe cómo hacerlo bien — sin que tengas que
+explicárselo cada vez.
 
 ---
 
-## ¿Qué hace cada plugin?
+## ⚠️ ¿Ya tenías instalados los plugins viejos?
 
-| Plugin | Qué hace | Cuándo se activa solo |
-|---|---|---|
-| **`epa-naming`** | Sabe cómo se nombran todos los recursos en EPA (colecciones, tablas, buckets, repos, variables). | Cuando vas a crear o renombrar un recurso en GCP, GitHub o tu código. |
-| **`epa-safe-vibe`** | Te bloquea cuando vas a hacer algo que ha costado caro antes: borrar `PitagorasUsers`, hardcodear un token, conectarte directo a Meta Ads sin Pitágoras, usar Google Sheets como base de datos. | Ante palabras como `delete`, `drop`, `api_key="..."`, `gspread`, `googleads.googleapis.com`, etc. |
-| **`epa-stack`** | Te dice qué stack usar para cada caso (FastAPI vs Hono, Cloud Run vs Cloud Run job, BigQuery vs Firestore). Dashboards: **Next.js 15 + Tailwind**. | Cuando dices "voy a construir X", "qué uso para Y", "cómo hago un dashboard de Z". |
-| **`epa-design`** | Tiene los tokens, componentes y guías de copy del design system de EPA: paleta `#003AD6`, tipografía IBM Plex, copy en español sentence-case, separadores correctos. | Cuando construyes UI, escribes CSS/Tailwind/JSX, haces un slide o un landing. |
-| **`epa-cicd`** | Te entrega templates listos para subir tu app a Cloud Run usando GitHub Actions, con guía paso a paso. | Cuando dices "deploy", "subir a producción", "Cloud Run", "CI/CD". |
-| **`epa-dashboards`** | Capa de vibecoding para dashboards: stack de frontend cerrado (Next.js + pnpm + TS estricto), convenciones de los datasets `{cliente}_reporting` en BigQuery, comandos para planear/criticar y un agente de revisión de seguridad. | Cuando construyes o modificas un dashboard, escribes SQL contra BigQuery de un cliente, o corres `/plan-dashboard`, `/client-context`, `/critique-epa`. |
+Si en algún momento instalaste `epa-naming`, `epa-safe-vibe`, `epa-stack`,
+`epa-design` o `epa-cicd`, quítalos — ya no existen en este repo y pueden
+darte instrucciones desactualizadas. Pega esto en tu terminal:
 
-Todos los skills son **auto-invocados**: no tienes que escribir `/epa-naming`
-ni nada parecido. Claude detecta el contexto y los activa solo (los 3
-comandos y el agente de `epa-dashboards` sí se invocan explícitamente — ver
-su sección más abajo). Tu trabajo es solo tenerlos instalados.
+```bash
+claude plugin uninstall epa-naming@epa-plugins
+claude plugin uninstall epa-safe-vibe@epa-plugins
+claude plugin uninstall epa-stack@epa-plugins
+claude plugin uninstall epa-design@epa-plugins
+claude plugin uninstall epa-cicd@epa-plugins
+claude plugin install epa-dashboards@epa-plugins
+```
+
+Si nunca los instalaste, ignora esta sección y sigue con la instalación
+normal de abajo.
 
 ---
 
-## Instalación — la guía sin asumir nada
+## Instalación — paso a paso, sin asumir nada
 
-> **Audiencia:** cualquier persona en EPA que use Claude Code, aunque nunca
-> haya abierto una terminal.
+**Audiencia:** cualquier persona en EPA, aunque nunca hayas abierto una
+terminal.
 
-### 1. Asegúrate de tener Claude Code
+### 1. Instala Claude Code
 
-Si todavía no lo tienes, instálalo desde [claude.com/code](https://claude.com/code).
-Versión mínima recomendada: 2024-10 o superior (para soporte de plugins).
+Si no lo tienes, descárgalo de [claude.com/code](https://claude.com/code).
 
 ### 2. Abre la terminal
 
-- **Mac:** Presiona `Cmd + Espacio`, escribe `Terminal` y presiona Enter.
-- **Windows:** Presiona la tecla Windows, escribe `PowerShell` y presiona Enter.
-- **Dentro de VS Code o Cursor:** menú `Terminal` → `New Terminal`.
+- **Mac:** `Cmd + Espacio`, escribe `Terminal`, Enter.
+- **Windows:** tecla Windows, escribe `PowerShell`, Enter.
+- **Si usas VS Code o Cursor:** menú `Terminal` → `New Terminal`.
 
-Vas a ver un cursor parpadeando. Ahí pegas los comandos uno por uno.
+Se abre una ventana con un cursor parpadeando. Ahí vas a pegar comandos.
 
-### 3. (Opcional pero recomendado) Verifica que `claude` está instalado
-
-Pega esto y presiona Enter:
-
-```bash
-claude --version
-```
-
-Si te muestra una versión (ej. `claude-code 1.x.x`), todo bien. Si dice
-`command not found`, regresa al paso 1 e instala Claude Code.
-
-### 4. Inicia sesión con tu cuenta EPA
-
-Claude Code requiere login antes del primer uso. Corre:
+### 3. Inicia sesión con tu cuenta de EPA
 
 ```bash
 claude
 ```
 
-Se abrirá una ventana del navegador para autenticarte.
+Se abre el navegador para que inicies sesión.
 
-> ⚠️ **Usa tu cuenta `@epa.digital`** (ej. `tu.nombre@epa.digital`), **no
-> tu correo personal de Gmail/Hotmail/Yahoo**. Es importante por dos razones:
->
-> 1. Los plugins, marketplaces internos y MCP servers de EPA (incluido el de
->    Pitágoras) autentican contra tu identidad de Google Workspace de EPA.
->    Con tu cuenta personal no vas a poder usarlos aunque los instales.
-> 2. Para auditoría: el uso queda asociado a tu identidad organizacional,
->    no a una cuenta privada.
->
-> Si te equivocaste y firmaste con la cuenta personal, corre `claude logout`
-> y luego `claude` de nuevo eligiendo la cuenta `@epa.digital`.
+> ⚠️ **Usa tu cuenta `@epa.digital`**, no tu Gmail personal. Con la cuenta
+> personal no vas a poder instalar nada de esto.
 
-Una vez logueado, sal de la sesión interactiva (`/quit` o `Ctrl+D`) y vuelve a
-la terminal para los siguientes pasos.
+Cuando termines de iniciar sesión, sal con `/quit` o `Ctrl+D` y vuelve a la
+terminal.
 
-### 5. Agrega el marketplace (paso que se hace una vez por máquina)
+### 4. Dile a Claude Code dónde está el plugin de EPA
+
+Un **"marketplace"** es solo el catálogo de dónde vienen los plugins.
+Este comando le dice a Claude Code: "el catálogo de EPA está en este repo
+de GitHub" — lo haces una sola vez, en cualquier máquina:
 
 ```bash
 claude plugin marketplace add EPA-Digital/claude-plugins
 ```
 
-Esto le dice a tu Claude Code: "el catálogo oficial de EPA está en este repo
-de GitHub". A partir de aquí puedes instalar cualquiera de nuestros plugins.
-
-### 6. Instala los 6 plugins
-
-Pégalos uno por uno (o todos juntos en un mismo bloque — funciona igual):
+### 5. Instala el plugin
 
 ```bash
-claude plugin install epa-naming@epa-plugins
-claude plugin install epa-safe-vibe@epa-plugins
-claude plugin install epa-stack@epa-plugins
-claude plugin install epa-design@epa-plugins
-claude plugin install epa-cicd@epa-plugins
 claude plugin install epa-dashboards@epa-plugins
 ```
 
-Cada uno tarda 2–5 segundos. Listo.
+Tarda unos segundos. Listo.
 
-> Alternativa: sigue `docs/onboarding-vibecoding.md` para el checklist
-> completo de Día 0, incluidos los pasos que tramita IT (grupo IAM
-> `grp-vibecoding@epa.digital`) antes de este paso.
+### 6. Verifica que quedó instalado
 
-### 7. Verifica que todo quedó instalado
+Abre Claude Code y escribe `/plugin`. Deberías ver `epa-dashboards` con un
+check verde.
 
-```bash
-claude plugin marketplace list
+> **¿Prefieres el checklist completo?** `docs/onboarding-vibecoding.md`
+> incluye también los pasos que tramita el equipo de IT antes de este
+> punto (acceso a BigQuery, alta en el grupo del equipo).
+
+---
+
+## ¿Qué trae el plugin?
+
+Una vez instalado, no tienes que invocar nada a mano — Claude detecta lo
+que estás haciendo y usa la parte correcta del plugin sola.
+
+| Parte | Qué hace | Cuándo se activa |
+|---|---|---|
+| **Stack de frontend** | Next.js, pnpm, TypeScript, Tailwind — el stack completo y cerrado, sin que tengas que decidir nada | Cuando construyes o modificas un dashboard |
+| **Datos de BigQuery** | Sabe qué tablas usar por cliente y cómo escribir queries que no te cuesten dinero de más | Cuando escribes SQL o pides datos de un cliente |
+| **Design system** | Colores, tipografía y componentes oficiales de EPA | Cuando construyes cualquier pantalla |
+| **Deploy** | Te guía para subir el dashboard a producción | Cuando dices "deploy" o "cómo subo esto" |
+| **Seguridad** | Te detiene si vas a hacer algo riesgoso (borrar algo, pegar una contraseña en el código) | Automático, todo el tiempo |
+
+Y 4 comandos que sí escribes tú, cuando los necesitas:
+
+| Comando | Para qué |
+|---|---|
+| `/plan-dashboard {cliente}` | Antes de empezar: te ayuda a planear el dashboard antes de escribir código |
+| `/client-context {cliente}` | Revisa qué datos reales existen de ese cliente en BigQuery |
+| `/critique-epa` | Revisa que tu dashboard cumpla el diseño oficial de EPA |
+| `/migrate-to-epa` | Si ya empezaste tu dashboard con otro stack, lo homologa al estándar EPA |
+
+---
+
+## Cómo se usa en el día a día
+
+```
+Tú escribes:                              Claude hace:
+──────────────────────────────────────    ────────────────────────────────
+"Quiero un dashboard de campañas          Te pregunta lo necesario y te
+para Innovasport"                         arma el proyecto con el stack
+                                           correcto — sin que tengas que
+                                           decidir Next.js, pnpm, etc.
+
+Pegas api_key = "AIza..." en tu código    BLOQUEA. Te muestra cómo
+                                           guardarlo correctamente.
+
+"Dame las ventas por campaña de           Sabe qué tabla de BigQuery usar,
+Google Ads de Chedraui"                   castea los tipos correctos, y
+                                           nunca te deja hacer una query sin
+                                           límite que te cueste dinero.
+
+"Cómo subo este dashboard a               Te genera el archivo de deploy
+producción"                               automático y te guía paso a paso.
 ```
 
-Deberías ver `epa-plugins` en la lista. Para confirmar plugins activos abre
-Claude Code y escribe `/plugin` — verás los 6 con check verde.
-
----
-
-## Instalación a nivel de **usuario** vs a nivel de **proyecto**
-
-Los pasos anteriores instalan los plugins a nivel **usuario** (default), que
-es lo recomendado: así los tienes en cualquier proyecto donde abras Claude
-Code, sin volver a configurar nada.
-
-| Scope | Comando | Cuándo usarlo |
-|---|---|---|
-| **Usuario (default — recomendado)** | `claude plugin marketplace add EPA-Digital/claude-plugins` | Tu máquina personal. Aplica a todos los repos en los que trabajas. |
-| **Proyecto** | `claude plugin marketplace add EPA-Digital/claude-plugins --scope project` | Solo cuando un repo específico debe traer los plugins consigo (ya configurado en algunos repos EPA via `.claude/settings.json`). |
-| **Local** | `claude plugin marketplace add EPA-Digital/claude-plugins --scope local` | Pruebas puntuales. Se borra al cerrar la sesión. |
-
-> **Atajo para repos EPA:** Algunos repos de la agencia ya incluyen un
-> `.claude/settings.json` con los plugins preconfigurados. Cuando abres Claude
-> Code y confías en el folder, te aparece un prompt automático preguntando si
-> quieres instalar el marketplace de EPA. Dile que sí y todo queda listo.
-
----
-
-## Cómo usarlos en el día a día
-
-Una vez instalados, **no hay nada que invocar manualmente**. Claude Code
-activa el skill correcto según lo que estés haciendo. Algunos ejemplos:
-
-| Lo que escribes en Claude Code | Plugin que se activa | Qué pasa |
-|---|---|---|
-| "Voy a crear una colección de Firestore para Coppel" | `epa-naming` | Te propone `CoppelCampaigns` siguiendo la convención `{Cliente}{Entidad}`. |
-| "Borra esta colección de Firestore" | `epa-safe-vibe` | Te detiene, te pregunta exactamente qué vas a borrar y verifica si está protegida. |
-| Pegas `api_key = "AIza..."` en tu código | `epa-safe-vibe` | BLOQUEA. Te muestra cómo obtenerlo desde Secret Manager. |
-| "Necesito un dashboard de campañas para Innovasport" | `epa-stack` + `epa-design` | Te arma scaffolding Next.js + Tailwind con tokens EPA correctos. |
-| "Cómo subo este servicio a producción" | `epa-cicd` | Te genera el `.github/workflows/deploy.yml` y te guía por los prerequisitos. |
-| "Cómo me conecto a la API de Meta para traer las campañas de Nestlé" | `epa-safe-vibe` + `epa-stack` | BLOQUEA acceso directo a Meta. Te redirige a Pitágoras con código listo. |
-| "Hazme un componente de tabla con los KPIs del cliente" | `epa-design` | Usa IBM Plex, hairlines 0.5px, números en mono, copy en español sentence case. |
-| "Quiero hacer un ETL de datos de Google Ads para Chedraui" | `epa-stack` | Te propone Cloud Run job + Cloud Scheduler + flujo Pitágoras → BQ. |
-
-No tienes que recordarte de invocarlos. Tu trabajo es escribir como
-escribirías normalmente; los plugins hacen lo suyo.
-
----
-
-## Mantenerlos actualizados
-
-Cuando publiquemos versión nueva (cambios en convenciones, nuevas referencias,
-fixes), corres:
-
-```bash
-claude plugin marketplace update epa-plugins
-```
-
-Eso refresca el catálogo. Los plugins individuales se actualizan
-automáticamente al iniciar Claude Code la próxima vez.
+Solo escribe como escribirías normalmente. El plugin hace lo suyo.
 
 ---
 
@@ -187,85 +146,47 @@ automáticamente al iniciar Claude Code la próxima vez.
 ```
 claude-plugins/
 ├── .claude-plugin/
-│   └── marketplace.json          ← catálogo del marketplace
+│   └── marketplace.json          ← catálogo del plugin
 ├── .claude/
-│   └── settings.json             ← auto-instalación cuando se confía en el folder
-├── CLAUDE.md                     ← contexto maestro de epa-turing
+│   └── settings.json             ← auto-instalación al confiar en el folder
+├── CLAUDE.md                     ← contexto maestro
 ├── README.md                     ← este archivo
-├── plugins/
-│   ├── epa-naming/
-│   │   ├── .claude-plugin/plugin.json
-│   │   └── skills/epa-naming/SKILL.md
-│   ├── epa-safe-vibe/
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── skills/epa-safe-vibe/SKILL.md
-│   │   └── references/
-│   │       ├── protected-resources.md
-│   │       └── pitagoras-access.md
-│   ├── epa-stack/
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── skills/epa-stack/SKILL.md
-│   │   └── references/
-│   │       ├── bigquery-patterns.md
-│   │       ├── firestore-patterns.md
-│   │       ├── n8n-patterns.md
-│   │       └── pitagoras.md
-│   ├── epa-design/
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── skills/epa-design/SKILL.md
-│   │   └── references/
-│   │       ├── DESIGN.md
-│   │       ├── tokens.md
-│   │       ├── components.md
-│   │       └── copy.md
-│   ├── epa-cicd/
-│   │   ├── .claude-plugin/plugin.json
-│   │   ├── skills/epa-cicd/SKILL.md
-│   │   └── references/
-│   │       ├── dockerfile-patterns.md
-│   │       └── cloud-run-config.md
-│   └── epa-dashboards/
-│       ├── .claude-plugin/plugin.json
-│       ├── skills/
-│       │   ├── epa-frontend/
-│       │   │   ├── SKILL.md
-│       │   │   └── references/{stack,tsconfig-eslint,anti-stack}.md
-│       │   └── epa-bq/
-│       │       ├── SKILL.md
-│       │       └── references/{schema-google-transfer,schema-social,query-recipes}.md
-│       ├── commands/{plan-dashboard,client-context,critique-epa}.md
-│       └── agents/security-reviewer.md
 ├── docs/
-│   └── onboarding-vibecoding.md
-└── .gitignore
+│   └── onboarding-vibecoding.md  ← checklist completo de Día 0
+└── plugins/
+    └── epa-dashboards/
+        ├── .claude-plugin/plugin.json
+        ├── hooks/                         ← guardrail de deploy (automático)
+        ├── commands/
+        │   ├── plan-dashboard.md
+        │   ├── client-context.md
+        │   ├── critique-epa.md
+        │   └── migrate-to-epa.md
+        ├── agents/
+        │   └── security-reviewer.md
+        └── skills/
+            ├── epa-frontend/
+            ├── epa-bq/
+            ├── epa-design/
+            ├── epa-deploy/
+            └── epa-safe-vibe/
 ```
 
 ---
 
-## Métodos alternativos de instalación
+## Otras formas de instalar
 
-Si por alguna razón no puedes usar la CLI, aquí van otras dos vías.
+Si por alguna razón no puedes usar los comandos de arriba:
 
-### Opción B — Desde dentro de Claude Code
-
-Abre Claude Code en cualquier folder y escribe estos comandos uno por uno
-(con la barra `/` al inicio):
-
+**Desde dentro de Claude Code** (con la barra `/` al inicio):
 ```
 /plugin marketplace add EPA-Digital/claude-plugins
-/plugin install epa-naming@epa-plugins
-/plugin install epa-safe-vibe@epa-plugins
-/plugin install epa-stack@epa-plugins
-/plugin install epa-design@epa-plugins
-/plugin install epa-cicd@epa-plugins
 /plugin install epa-dashboards@epa-plugins
 ```
 
-### Opción C — Auto-instalación desde un repo EPA
-
-Si tu repo ya incluye este `.claude/settings.json`, al abrir Claude Code te
-pregunta si quieres instalarlo:
-
+**Auto-instalación en un repo de dashboard:** si tu repo ya trae este
+`.claude/settings.json`, Claude Code te pregunta si quieres instalarlo al
+abrirlo — dile que sí:
 ```json
 {
   "extraKnownMarketplaces": {
@@ -274,11 +195,6 @@ pregunta si quieres instalarlo:
     }
   },
   "enabledPlugins": {
-    "epa-naming@epa-plugins": true,
-    "epa-safe-vibe@epa-plugins": true,
-    "epa-stack@epa-plugins": true,
-    "epa-design@epa-plugins": true,
-    "epa-cicd@epa-plugins": true,
     "epa-dashboards@epa-plugins": true
   }
 }
@@ -286,37 +202,7 @@ pregunta si quieres instalarlo:
 
 ---
 
-## Para repos de dashboards
-
-Si el repo que estás iniciando es un dashboard (no un producto interno
-genérico), usa este `settings.json` — es el mismo de la Opción C pero con
-`epa-dashboards` ya habilitado desde el arranque:
-
-```json
-{
-  "extraKnownMarketplaces": {
-    "epa-plugins": { "source": { "source": "github", "repo": "EPA-Digital/claude-plugins" } }
-  },
-  "enabledPlugins": {
-    "epa-naming@epa-plugins": true,
-    "epa-safe-vibe@epa-plugins": true,
-    "epa-stack@epa-plugins": true,
-    "epa-design@epa-plugins": true,
-    "epa-cicd@epa-plugins": true,
-    "epa-dashboards@epa-plugins": true
-  }
-}
-```
-
-Este snippet queda documentado aquí para el futuro template
-`create-epa-dashboard` (Etapa 3 de la plataforma de dashboards, todavía no
-existe) — mientras tanto, pégalo a mano en un dashboard nuevo.
-
----
-
-## Validación local (solo si vas a contribuir)
-
-Para verificar que un cambio al repo no rompe el marketplace:
+## Validación local (solo si vas a contribuir a este repo)
 
 ```bash
 claude plugin validate .
@@ -330,10 +216,9 @@ Debe responder `✔ Validation passed`. Si no, corrige y vuelve a correr.
 
 | Situación | Qué hacer |
 |---|---|
-| Un plugin no se activa cuando esperarías | Abre un issue en este repo describiendo el prompt y qué activación esperabas. |
-| Un plugin bloquea cosas que no debería | Mismo flujo — issue con el caso. |
-| Quieres proponer un nuevo plugin EPA | Escribe al área de Datos e IA: `datos@epa.digital`. |
-| Cambios al stack canónico, naming o seguridad | PR a este repo, con un breve "Why" explicando el cambio. |
+| El plugin no se activa cuando esperarías | Abre un issue en este repo describiendo qué le pediste a Claude y qué esperabas |
+| El plugin bloquea algo que no debería | Mismo flujo — issue con el caso |
+| Cambios a las reglas del plugin | PR a este repo con un breve "por qué" |
 
 ---
 

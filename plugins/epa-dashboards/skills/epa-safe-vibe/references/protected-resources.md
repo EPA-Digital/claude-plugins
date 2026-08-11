@@ -11,7 +11,7 @@ activa BLOQUEO TOTAL en epa-safe-vibe.
 ## Firestore — Colecciones protegidas
 
 Las colecciones críticas viven en el proyecto **`bdd-epa-digital`** (no en `epa-turing`).
-Los nombres son **lowercase** — son colecciones legacy; no seguir PascalCase aquí.
+Los nombres son **lowercase** — son colecciones legacy de la agencia.
 
 | Colección | Proyecto | Por qué es crítica |
 |---|---|---|
@@ -28,6 +28,10 @@ Los nombres son **lowercase** — son colecciones legacy; no seguir PascalCase a
 **Otras colecciones en `bdd-epa-digital` que no deben tocarse sin consultar:**
 `analyses`, `audits`, `etl_runs`, `extraction_logs`, `historic`, `processed_documents`, `projects`, `rules`
 
+Un dashboard no debería tocar ninguna de estas — no son parte de su modelo
+de datos (ver `epa-bq`). Si tu dashboard necesita leer o escribir en alguna,
+detente y confirma con Datos e IA antes de continuar.
+
 ---
 
 ## Secret Manager — Secrets protegidos
@@ -41,13 +45,8 @@ Secrets en el proyecto **`epa-turing`**:
 | `GoogleAdsYAML` | Google Ads | Acceso a Google Ads roto en toda la agencia |
 | `BingAccessTokenEpa` | Bing Ads | Integración Bing rota |
 
-> Los secrets para LinkedIn y DV360 no están documentados aún — preguntar al área de
-> Datos e IA antes de crear o modificar secrets relacionados con esos providers.
-
-Path de acceso (solo lectura):
-```
-projects/689827400521/secrets/{NombreSecret}/versions/latest
-```
+Estos secrets son del ETL centralizado — un dashboard no debería
+necesitarlos directamente (ver B3 en `SKILL.md`).
 
 **Nunca:**
 - Crear una nueva versión con un valor vacío o incorrecto
@@ -61,17 +60,19 @@ projects/689827400521/secrets/{NombreSecret}/versions/latest
 | Servicio | Proyecto | Por qué es crítico |
 |---|---|---|
 | `epa-dashboard` (**Newton**) | `bdd-epa-digital` | Intranet de EPA en `dashboard.epa.digital` — dashboard usado a diario para revisar el estatus de cuentas. Lleva >1 año corriendo con ese nombre genérico (legacy; debió ser `newton-web`). |
-| `pitagoras-api` | `epa-turing` | Capa centralizada de medios (8 providers). Romperla rompe ETLs y reportes de toda la agencia. |
+| `pitagoras-api` | `epa-turing` | Capa centralizada de medios (8 providers). Romperla rompe el ETL centralizado. |
 
 **Operaciones bloqueadas (BLOQUEO TOTAL):**
 - `gcloud run deploy` apuntando a uno de estos nombres (sobrescribe el servicio vivo).
 - `gcloud run services delete/update/replace` sobre ellos.
 - Crear un trigger de Cloud Build que despliegue sobre estos nombres.
 
-> ⚠️ **Incidente Newton (2026-06-09):** un deploy automatizado reusó el nombre
-> `epa-dashboard` en `bdd-epa-digital` y sobrescribió a Newton. Regla derivada (ver
-> `SKILL.md` B7): deploys de IA → **solo `epa-turing` + sufijo `-vibe`**; nombres limpios
-> los despliega una persona con su identidad. El hook `hooks/guard-cloud-deploy.sh` lo enforce.
+> ⚠️ **Incidente Newton (2026-06-09):** un deploy automatizado reusó el
+> nombre `epa-dashboard` en `bdd-epa-digital` y sobrescribió a Newton.
+> Regla derivada (ver `SKILL.md` B7): todo dashboard va a `epa-turing` +
+> sufijo `-vibe` en el nombre del servicio — **siempre, incluida
+> producción, sin excepción**. El hook `hooks/guard-cloud-deploy.sh` lo
+> enforce.
 
 ---
 
