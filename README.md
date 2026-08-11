@@ -31,6 +31,24 @@ normal de abajo.
 
 ---
 
+## ¿Ya tienes un dashboard empezado con otro stack?
+
+Si ya escribiste código — con `npm` en vez de `pnpm`, otra librería de
+charts, queries directo a otra API, lo que sea — **no lo reescribas a
+mano ni empieces de cero**. Instala el plugin (sección de abajo) y luego
+corre, dentro de ese proyecto:
+
+```
+/migrate-to-epa
+```
+
+Te dice qué corrigió solo, qué necesita tu confirmación, y qué queda
+pendiente. Es exactamente para este caso.
+
+Si tu dashboard todavía no existe, ignora esto y sigue con la instalación.
+
+---
+
 ## Instalación — paso a paso, sin asumir nada
 
 **Audiencia:** cualquier persona en EPA, aunque nunca hayas abierto una
