@@ -4,8 +4,17 @@
 `{account_id}`, `{advertiser_id}`, `{property_id}` por los valores reales
 del cliente (resueltos con `/client-context {cliente}` o por lookup manual
 — ver `epa-bq/SKILL.md`). Todas incluyen filtro de fecha y `LIMIT` en el
-patrón de exploración; quitar el `LIMIT` solo para la query final del
-route handler, y siempre con `maximum_bytes_billed` configurado.
+patrón de exploración; en el service Go que corre en el contenedor `api`,
+el `LIMIT` se vuelve un query parameter (`@limit`) con default y máximo —
+nunca se quita, se reemplaza por un valor validado (ver
+`epa-backend/references/bigquery-repository.md`, capa
+`service/campaignmetrics/service.go`) — y siempre con `q.MaxBytesBilled`
+configurado.
+
+> La receta 1 (inversión/clicks/impresiones de Google Ads por campaña) es
+> justo la que implementa `CampaignMetrics` en
+> `epa-backend/references/bigquery-repository.md` — si cambia el SQL de
+> una, cambia la otra.
 
 ---
 

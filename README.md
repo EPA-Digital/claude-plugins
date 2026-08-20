@@ -117,9 +117,10 @@ que estás haciendo y usa la parte correcta del plugin sola.
 | Parte | Qué hace | Cuándo se activa |
 |---|---|---|
 | **Stack de frontend** | Next.js, pnpm, TypeScript, Tailwind — el stack completo y cerrado, sin que tengas que decidir nada | Cuando construyes o modificas un dashboard |
+| **Backend en Go** | El servicio que de verdad consulta BigQuery — uno por dashboard, corre junto al frontend sin que tengas que desplegarlo aparte | Cuando el dashboard necesita datos reales de un cliente |
 | **Datos de BigQuery** | Sabe qué tablas usar por cliente y cómo escribir queries que no te cuesten dinero de más | Cuando escribes SQL o pides datos de un cliente |
 | **Design system** | Colores, tipografía y componentes oficiales de EPA | Cuando construyes cualquier pantalla |
-| **Deploy** | Te guía para subir el dashboard a producción | Cuando dices "deploy" o "cómo subo esto" |
+| **Deploy** | Te guía para subir el dashboard a producción (frontend y backend juntos) | Cuando dices "deploy" o "cómo subo esto" |
 | **Seguridad** | Te detiene si vas a hacer algo riesgoso (borrar algo, pegar una contraseña en el código) | Automático, todo el tiempo |
 
 Y 4 comandos que sí escribes tú, cuando los necesitas:
@@ -184,6 +185,7 @@ claude-plugins/
         │   └── security-reviewer.md
         └── skills/
             ├── epa-frontend/
+            ├── epa-backend/
             ├── epa-bq/
             ├── epa-design/
             ├── epa-deploy/

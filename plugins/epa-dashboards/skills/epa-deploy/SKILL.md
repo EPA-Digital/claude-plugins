@@ -21,17 +21,31 @@ Audiencia: usuarios con poca o ninguna experiencia en DevOps
 ## Regla 0 — Nombres
 
 ```
-Servicio de Cloud Run:   {cliente}-dashboard-web-vibe
-                         siempre kebab-case, siempre termina en -vibe
-                         (sí, también en producción — ver epa-safe-vibe B7)
-Repo de GitHub:          {cliente}-dashboard
+Servicio de Cloud Run:   {cliente}-dashboard-vibe
+                         UN servicio con DOS contenedores (web + api) —
+                         no un servicio por contenedor. Siempre kebab-case,
+                         siempre termina en -vibe, sí también en producción
+                         (ver epa-safe-vibe B7).
+Repo de GitHub:          {cliente}-dashboard   (monorepo: apps/web + apps/api)
+Imágenes en Artifact
+Registry:                .../epa-containers/{cliente}-dashboard/web
+                         .../epa-containers/{cliente}-dashboard/api
+Service account runtime: {cliente}-dashboard-runtime@epa-turing.iam...
+                         UNA sola, compartida por los dos contenedores.
 Ramas:                   main / dev / feature/EPA-{ticket}-{slug}
-Variables de entorno:    EPA_* (servidor) · NEXT_PUBLIC_* (navegador)
+Variables de entorno:    EPA_* (servidor, ambos contenedores) ·
+                         NEXT_PUBLIC_* (navegador, solo web)
 ```
+
+> Servicios ya desplegados como `{cliente}-dashboard-web-vibe` (de antes de
+> este cambio) **conservan su nombre** — renombrar un servicio de Cloud Run
+> le cambia la URL. El infijo `-web` se retira solo en dashboards nuevos.
 
 Prohibido: nombres genéricos (`dashboard`, `epa-dashboard` — es la cadena
 del incidente Newton), nombres personales, versión en el nombre
-(`-v2`), mezclar convenciones. Si tienes duda de cómo nombrar algo,
+(`-v2`), mezclar convenciones, **un segundo servicio de Cloud Run para el
+backend Go** (ver epa-safe-vibe B5/B6 — el backend es un sidecar del mismo
+servicio, no un servicio aparte). Si tienes duda de cómo nombrar algo,
 escribe a datos@epa.digital antes de crear el recurso.
 
 ---
@@ -39,24 +53,37 @@ escribe a datos@epa.digital antes de crear el recurso.
 ## Concepto en 30 segundos
 
 ```
-Tu código en GitHub
+Tu código en GitHub (un repo: apps/web + apps/api)
        ↓
    Haces push a main
        ↓
 GitHub Actions se activa automáticamente
        ↓
-pnpm typecheck && pnpm lint && pnpm build   ← si algo falla, no pasa de aquí
+pnpm typecheck && pnpm lint && pnpm build         (apps/web)
+go build ./... && go test ./... && golangci-lint run  (apps/api)
+       ↓                              ← si algo falla, no pasa de aquí
+Construye DOS imágenes Docker (web, api) con el mismo $SHA
        ↓
-Construye tu app en un contenedor Docker
+Sube las dos imágenes a Google Artifact Registry
        ↓
-Sube el contenedor a Google Artifact Registry
+UN gcloud run deploy con --container=web --container=api
        ↓
-Despliega en Cloud Run (epa-turing)
-       ↓
-Tu dashboard está vivo en una URL de Cloud Run
+Tu dashboard está vivo en una URL de Cloud Run — un servicio, dos contenedores
 ```
 
 Después del setup inicial, desplegar es solo hacer `git push`.
+
+**Orden de banderas de `gcloud run deploy` con multi-contenedor** (verificado
+contra `gcloud run deploy --help`, sección *Container Flags*, SDK 580.0.0):
+*"The following flags apply to a single container. If the `--container`
+flag is specified these flags may only be specified after a `--container`
+flag."* — es decir: `--project`, `--region`, `--service-account`,
+`--no-allow-unauthenticated`, `--min-instances`, `--max-instances` van
+**antes** del primer `--container`; `--image`, `--port`, `--memory`,
+`--cpu`, `--depends-on`, `--startup-probe`, `--update-env-vars` van
+**después** del `--container` al que pertenecen. El comando completo, con
+el detalle de por qué el contenedor `api` nunca lleva `--port`, vive en
+`epa-backend/references/sidecar.md` — no se repite aquí.
 
 ---
 
@@ -98,10 +125,17 @@ gcloud projects add-iam-policy-binding epa-turing \
   --member="serviceAccount:github-actions-deployer@epa-turing.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser"
 
-# Además, para que el dashboard pueda leer BigQuery en tiempo de ejecución
-gcloud projects add-iam-policy-binding epa-turing \
-  --member="serviceAccount:{cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com" \
-  --role="roles/bigquery.dataViewer"
+# --- SA de RUNTIME, distinta de la de deploy ---------------------------
+# github-actions-deployer es quien DESPLIEGA. El servicio, en tiempo de
+# ejecución, corre con {cliente}-dashboard-runtime — la misma SA para los
+# dos contenedores (web + api). Solo esta SA necesita permisos de BigQuery
+# y necesita LOS DOS roles: dataViewer solo no incluye bigquery.jobs.create,
+# y la primera query del contenedor api da 403 sin jobUser también. Comandos
+# exactos y el porqué en epa-deploy/references/cloud-run-config.md — única
+# fuente, no se repiten en otro archivo.
+gcloud iam service-accounts create {cliente}-dashboard-runtime \
+  --display-name="{cliente} dashboard — runtime (web + api)" \
+  --project=epa-turing
 ```
 
 > **Opción A (Consola GCP):**
@@ -154,9 +188,11 @@ gcloud artifacts repositories create epa-containers \
 
 ---
 
-## Template de GitHub Actions — deploy a Cloud Run
+## Template de GitHub Actions — deploy a Cloud Run (dos contenedores)
 
-Crear el archivo en tu repo: `.github/workflows/deploy.yml`
+Crear el archivo en tu repo: `.github/workflows/deploy.yml`. Un solo
+workflow para todo el monorepo: construye `apps/web` y `apps/api`, y hace
+**un** `gcloud run deploy` con los dos `--container`.
 
 ```yaml
 name: Deploy a Cloud Run
@@ -172,7 +208,10 @@ env:
   REGISTRY: us-central1-docker.pkg.dev
   REPOSITORY: epa-containers
   # ⚠️ Cambiar al nombre real, kebab-case, SIEMPRE terminado en -vibe (ver Regla 0)
-  SERVICE_NAME: cliente-dashboard-web-vibe
+  SERVICE_NAME: cliente-dashboard-vibe
+  IMAGE_WEB: cliente-dashboard-web
+  IMAGE_API: cliente-dashboard-api
+  RUNTIME_SA: cliente-dashboard-runtime@epa-turing.iam.gserviceaccount.com
 
 jobs:
   deploy:
@@ -185,6 +224,7 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
+      # --- apps/web: gate de calidad + imagen -----------------------------
       - name: Instalar pnpm
         uses: pnpm/action-setup@v4
 
@@ -193,13 +233,27 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias (apps/web)
+        working-directory: apps/web
         run: pnpm install --frozen-lockfile
 
       # Gate de calidad — si algo falla aquí, no se construye ni despliega nada
-      - name: Typecheck, lint y build
+      - name: Typecheck, lint y build (apps/web)
+        working-directory: apps/web
         run: pnpm typecheck && pnpm lint && pnpm build
+
+      # --- apps/api: gate de calidad -----------------------------------------
+      - name: Instalar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      - name: Build, test y lint (apps/api)
+        working-directory: apps/api
+        run: go build ./... && go test ./... && golangci-lint run
 
       - name: Autenticar en GCP
         uses: google-github-actions/auth@v2
@@ -210,45 +264,59 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.REGISTRY }} --quiet
 
-      - name: Build de la imagen Docker
+      - name: Build y push — imagen de apps/web
+        working-directory: apps/web
         run: |
           docker build \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_WEB }}:${{ github.sha }} \
             .
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_WEB }}:${{ github.sha }}
 
-      - name: Push de la imagen a Artifact Registry
+      - name: Build y push — imagen de apps/api
+        working-directory: apps/api
         run: |
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_API }}:${{ github.sha }} \
+            .
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_API }}:${{ github.sha }}
 
-      # Guard de existencia: la PRIMERA vez que se crea el servicio, aborta si el
-      # nombre ya existe (un deploy a un nombre existente lo SOBREESCRIBE — incidente
-      # Newton). Quitar este step una vez que el servicio es tuyo y deployeas updates.
-      - name: Guard — el servicio no debe existir ya (primer deploy)
-        if: ${{ vars.FIRST_DEPLOY == 'true' }}
+      # Guard SIEMPRE activo (no depende de un toggle manual que alguien
+      # olvide apagar — ver epa-safe-vibe B7 / incidente Newton). Si el
+      # servicio ya existe pero su label epa-managed-by no es este repo,
+      # un deploy lo SOBREESCRIBIRÍA — abortar.
+      - name: Guard — el servicio, si existe, es de este dashboard
         run: |
-          if gcloud run services describe ${{ env.SERVICE_NAME }} \
-               --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} >/dev/null 2>&1; then
-            echo "🔴 El servicio '${{ env.SERVICE_NAME }}' YA existe en ${{ env.PROJECT_ID }}."
-            echo "   Un deploy lo SOBREESCRIBIRÍA. Elige otro nombre (ver epa-safe-vibe B7)."
+          existing_label=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} --project=${{ env.PROJECT_ID }} \
+            --format='value(metadata.labels.epa-managed-by)' 2>/dev/null || true)
+          if [ -n "$existing_label" ] && [ "$existing_label" != "${{ env.SERVICE_NAME }}" ]; then
+            echo "🔴 El servicio '${{ env.SERVICE_NAME }}' existe con label"
+            echo "   epa-managed-by='$existing_label' — no es este repo."
+            echo "   Un deploy lo SOBREESCRIBIRÍA (ver epa-safe-vibe B7)."
             exit 1
           fi
 
-      - name: Deploy a Cloud Run
+      - name: Deploy a Cloud Run (web + api)
         run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
             --region=${{ env.REGION }} \
             --project=${{ env.PROJECT_ID }} \
             --platform=managed \
             --no-allow-unauthenticated \
-            --service-account=github-actions-deployer@epa-turing.iam.gserviceaccount.com \
-            --memory=1Gi \
-            --cpu=1 \
+            --service-account=${{ env.RUNTIME_SA }} \
             --min-instances=0 \
-            --max-instances=3 \
-            --port=8080
+            --max-instances=10 \
+            --labels=epa-managed-by=${{ env.SERVICE_NAME }} \
+            --container=web \
+              --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_WEB }}:${{ github.sha }} \
+              --port=8080 --cpu=1 --memory=1Gi \
+              --depends-on=api \
+              --update-env-vars=EPA_API_BASE_URL=http://localhost:8081 \
+            --container=api \
+              --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_API }}:${{ github.sha }} \
+              --cpu=1 --memory=512Mi \
+              --startup-probe=httpGet.path=/health,httpGet.port=8081 \
+              --update-env-vars=PORT=8081,BQ_BILLING_PROJECT=epa-turing,BQ_DATA_PROJECT=bdd-epa-digital,BQ_DATASET={cliente}_reporting,BQ_MAX_BYTES_BILLED=104857600
 
       - name: Mostrar URL del servicio
         run: |
@@ -258,6 +326,20 @@ jobs:
             --format='value(status.url)'
 ```
 
+> ⚠️ **Recordatorios de este template, resueltos ya en el YAML de arriba
+> pero fáciles de romper si se edita a mano:**
+> - Toda bandera de un contenedor va **después** de su `--container` — ver
+>   "Concepto en 30 segundos" arriba y `epa-backend/references/sidecar.md`.
+> - `--service-account` es **service-level** — va antes del primer
+>   `--container`, y es la SA de *runtime* (`{cliente}-dashboard-runtime`),
+>   no la de deploy (`github-actions-deployer`). Confundir las dos es el
+>   bug que hacía que el grant de BigQuery apuntara a una SA que el
+>   servicio nunca usaba.
+> - `--update-env-vars`, nunca `--set-env-vars`, en cualquier `--container`
+>   que ya tenga otras env vars/secretos — `--set-env-vars` reemplaza el
+>   set completo en vez de agregar.
+> - El contenedor `api` **nunca** lleva `--port`.
+
 > ⚠️ **Por qué `--no-allow-unauthenticated`:** un dashboard muestra datos
 > reales de campañas y presupuesto de un cliente. Hasta que exista el auth
 > real de la plataforma (IAP + Identity Platform, ver
@@ -266,38 +348,39 @@ jobs:
 > `roles/run.invoker` a personas/grupos específicos. Si el dashboard
 > necesita ser accesible por el cliente final HOY, escala a
 > datos@epa.digital antes de exponerlo — no cambies esta bandera a
-> `--allow-unauthenticated` por tu cuenta.
+> `--allow-unauthenticated` por tu cuenta. Esto aplica al servicio completo
+> — el contenedor `api` va un paso más allá y ni siquiera tiene `--port`,
+> así que no depende solo de esta bandera para quedar fuera de internet.
 
 ---
 
 ## Template con variables de entorno desde Secret Manager
 
 Si tu dashboard necesita credenciales (poco común — la mayoría de los
-datos vienen de BigQuery vía ADC, no de secrets), usar este template
-extendido. Las variables se inyectan directamente desde Secret Manager en
-el deploy — el código nunca las ve como texto plano en el repo.
+datos vienen de BigQuery vía ADC, no de secrets), `--set-secrets` es
+**container-scoped**: va dentro del bloque `--container` del contenedor que
+realmente necesita el secreto — casi siempre `api`, casi nunca `web`. Las
+variables se inyectan directamente desde Secret Manager en el deploy — el
+código nunca las ve como texto plano en el repo.
 
 ```yaml
-      - name: Deploy a Cloud Run (con secrets)
-        run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
-            --region=${{ env.REGION }} \
-            --project=${{ env.PROJECT_ID }} \
-            --platform=managed \
-            --no-allow-unauthenticated \
-            --memory=1Gi \
-            --cpu=1 \
-            --min-instances=0 \
-            --max-instances=3 \
-            --port=8080 \
-            --set-secrets="EPA_ADMIN_TOKEN=EpaAdminToken:latest"
+            --container=api \
+              --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_API }}:${{ github.sha }} \
+              --cpu=1 --memory=512Mi \
+              --update-env-vars=PORT=8081,BQ_BILLING_PROJECT=epa-turing,... \
+              --set-secrets="EPA_ADMIN_TOKEN=EpaAdminToken:latest"
 ```
 
 El formato de `--set-secrets` es:
 ```
 EPA_{NOMBRE_VAR}={NombreSecret}:latest
 ```
+
+Si el contenedor ya tiene `--update-env-vars` en el mismo `--container`
+(como en el template de arriba), agregar `--set-secrets` en la misma línea
+no lo pisa — son grupos de banderas independientes. Lo que sí hay que
+evitar es mezclar `--set-env-vars` (reemplaza el set completo) con
+cualquiera de los dos.
 
 ---
 
@@ -318,25 +401,39 @@ feature/EPA-42-nueva-funcionalidad
 
 Para activar deploy en `dev` también (staging), duplicar el workflow con
 `branches: [dev]` y un `SERVICE_NAME` distinto (ej:
-`cliente-dashboard-web-staging-vibe`).
+`cliente-dashboard-stg-vibe`).
+
+> ⚠️ La plantilla de Eddy (`epa-standards-backend`) usa `staging` como rama
+> base para sus propios repos standalone (espejo de `admin-tool-api`, ya en
+> producción en la agencia). Esa convención es de sus repos, **no** del
+> monorepo del dashboard — aquí `apps/api` sigue las ramas de arriba (`main`
+> / `dev` / `feature/*`), igual que `apps/web`. No homologar a `staging`
+> por reflejo solo porque la plantilla forkeada la trae así (ver
+> `epa-backend/references/fork-checklist.md`, paso 7).
 
 ---
 
 ## QA local antes de hacer push a main
 
 Antes de hacer push a `main` — que dispara el deploy real — verifica que
-el dashboard arranca y responde localmente.
+los **dos** contenedores arrancan y responden localmente. Con sidecar, dev
+local es topológicamente idéntico a producción (detalle completo en
+`epa-backend/references/sidecar.md`):
 
 ```bash
-pnpm install
-pnpm dev   # corre en :3000 por default
+# terminal 1 — apps/api en :8081
+cd apps/api && go run ./cmd/api
+
+# terminal 2 — apps/web en :3000, apuntando al api local
+cd apps/web && EPA_API_BASE_URL=http://localhost:8081 pnpm dev
 ```
 
 Abre `localhost:3000` en el navegador y verifica que la UI carga sin
-errores de consola. `pnpm dev` corre en el puerto `:3000`; en Cloud Run el
-contenedor escucha en `:8080` — no es una inconsistencia, son entornos
-distintos (Next.js standalone respeta la variable `PORT` que Cloud Run le
-inyecta).
+errores de consola, y que los charts que dependen de datos reales
+responden (confirma que el `fetch` de `apps/web` a `apps/api` funciona).
+`pnpm dev` corre en el puerto `:3000`; en Cloud Run el contenedor `web`
+escucha en `:8080` — no es una inconsistencia, son entornos distintos
+(Next.js standalone respeta la variable `PORT` que Cloud Run le inyecta).
 
 ### Si tu dashboard necesita variables de entorno
 
@@ -352,34 +449,39 @@ cp .env.example .env.local   # editar con valores de prueba
 ## Checklist antes del primer deploy
 
 ```
-REPO Y CÓDIGO
-[ ] El repo está en GitHub, bajo la org EPA-Digital
-[ ] pnpm typecheck && pnpm lint && pnpm build pasan localmente
-[ ] El código tiene un Dockerfile válido en la raíz (ver
-    references/dockerfile-nextjs.md)
-[ ] El dashboard tiene un endpoint GET /api/health que responde 200
-[ ] El .gitignore incluye .env*, *.key, *.json de service accounts
-
-GITHUB
+AMBOS CONTENEDORES
+[ ] El repo está en GitHub, bajo la org EPA-Digital, con apps/web + apps/api
 [ ] El secret GCP_SA_KEY está configurado en el repo
-[ ] El archivo .github/workflows/deploy.yml existe con SERVICE_NAME correcto
-[ ] SERVICE_NAME sigue la Regla 0 de esta skill (kebab-case, sufijo -vibe)
-
-GCP
-[ ] El repositorio epa-containers existe en Artifact Registry
-[ ] La service account github-actions-deployer tiene los permisos correctos
+[ ] El archivo .github/workflows/deploy.yml existe, con UN gcloud run
+    deploy y dos --container (no dos servicios separados)
+[ ] SERVICE_NAME sigue la Regla 0 (kebab-case, sufijo -vibe, sin infijo -web)
 [ ] El proyecto epa-turing está seleccionado (no otro proyecto)
-[ ] Corrí `gcloud run services list --project=epa-turing` y SERVICE_NAME
-    NO existe ya (un deploy a un nombre existente lo SOBREESCRIBE — ver
-    epa-safe-vibe B7)
-[ ] SERVICE_NAME termina en -vibe — siempre, incluida producción
-[ ] Nunca desplegar en bdd-epa-digital (reservado a Datos e IA y Newton)
-
-SEGURIDAD
-[ ] No hay credenciales en el código ni en el Dockerfile
-[ ] Las variables sensibles usan --set-secrets, no --set-env-vars
+[ ] Nunca desplegar en bdd-epa-digital ni ga360-250517
+[ ] La SA de runtime ({cliente}-dashboard-runtime) tiene
+    roles/bigquery.jobUser Y roles/bigquery.dataViewer — los dos, no solo
+    uno (ver epa-deploy/references/cloud-run-config.md)
+[ ] No hay credenciales en el código ni en ningún Dockerfile
+[ ] El .gitignore incluye .env*, *.key, *.json de service accounts
 [ ] El archivo github-actions-key.json fue borrado después de subirlo a GitHub
 [ ] El deploy usa --no-allow-unauthenticated (ver nota de auth arriba)
+[ ] Corrí `pnpm dev` (apps/web) + `go run ./cmd/api` (apps/api) juntos en
+    local y el dashboard carga datos reales
+
+SOLO WEB
+[ ] pnpm typecheck && pnpm lint && pnpm build pasan localmente
+[ ] apps/web tiene un Dockerfile válido (ver references/dockerfile-nextjs.md)
+[ ] El contenedor web tiene un endpoint GET /api/health que responde 200
+[ ] apps/web NO declara ningún cliente de BigQuery (@google-cloud/bigquery
+    o similar) — es el único control que compensa la SA compartida
+[ ] EPA_API_BASE_URL nunca es NEXT_PUBLIC_*
+
+SOLO API
+[ ] go build ./... && go test ./... && golangci-lint run pasan localmente
+[ ] apps/api tiene un endpoint GET /health que responde 200
+[ ] El contenedor api NO tiene --port en el comando de deploy
+[ ] Toda query declara MaxBytesBilled (ver epa-backend/references/bigquery-repository.md)
+[ ] El middleware de bearer estático de la plantilla de Eddy fue borrado
+    (ver epa-backend/references/fork-checklist.md, paso 3)
 ```
 
 ---
@@ -422,6 +524,33 @@ Causa:  Se alcanzó el límite de instancias o CPU en epa-turing
 Fix:    Notificar al área de Datos e IA — puede ser necesario ajustar quotas o costos
 ```
 
+### 403 en la primera query del contenedor `api`: "Access Denied: bigquery.jobs.create"
+```
+Causa:  La SA de runtime tiene roles/bigquery.dataViewer pero no
+        roles/bigquery.jobUser. dataViewer solo no incluye permiso para
+        CORRER queries, solo para leer datos.
+Fix:    Agregar roles/bigquery.jobUser sobre epa-turing a la SA de runtime
+        — ver epa-deploy/references/cloud-run-config.md
+```
+
+### `web` recibe 502 / `ECONNREFUSED` al hacer fetch a `EPA_API_BASE_URL`
+```
+Causa:  Casi siempre PORT mal configurado en el contenedor api, falta
+        --depends-on=api en el contenedor web, o el startup probe de api
+        está fallando.
+Fix:    Ver el troubleshooting completo en
+        epa-backend/references/sidecar.md — y NUNCA agregar --port al
+        contenedor api "para que responda": eso le da ingress público.
+```
+
+### "Container failed to start" pero no queda claro cuál de los dos
+```
+Causa:  Con dos contenedores hay dos fuentes de log en el mismo servicio.
+Fix:    Filtrar por labels."run.googleapis.com/container_name" en Cloud
+        Logging (o en la consola, columna "Contenedor") antes de
+        diagnosticar — si no se filtra, los logs de web y api se mezclan.
+```
+
 ### Ver logs en tiempo real
 ```bash
 gcloud run services logs tail {nombre-servicio} \
@@ -440,17 +569,25 @@ Con `--min-instances=0` (la configuración del template), el costo es cero
 cuando no hay tráfico.
 
 ```
-Estimado mensual para un dashboard de uso moderado:
-- 0 instancias en idle:     $0
-- 1M requests/mes (1GB):    ~$10–18 USD
-- Artifact Registry storage: ~$1–3 USD/mes
+Estimado mensual para un dashboard de uso moderado (los dos contenedores
+comparten instancia, así que el vCPU/memoria de cada uno se suma dentro de
+la misma instancia activa — no son dos servicios facturando por separado):
+- 0 instancias en idle:                    $0
+- 1M requests/mes (web 1 vCPU/1Gi
+  + api 1 vCPU/512Mi):                     ~$14–24 USD
+- Artifact Registry storage (2 imágenes):  ~$2–4 USD/mes
 
-Total típico por dashboard:  $10–25 USD/mes
+Total típico por dashboard:  $16–30 USD/mes
 ```
+
+Es un poco más que el estimado de un solo contenedor (el sidecar suma su
+propio vCPU/memoria), pero sigue siendo un servicio escalando en conjunto
+con `--min-instances=0`, no dos servicios escalando por separado.
 
 Si ves costos inesperadamente altos, revisar:
 1. Si `--min-instances` está en 1 o más (cobra aunque no haya tráfico)
-2. Si hay queries a BigQuery sin límite de bytes (ver `epa-bq`)
+2. Si hay queries a BigQuery sin `MaxBytesBilled` (ver `epa-bq` y
+   `epa-backend/references/bigquery-repository.md`)
 3. Notificar al área de Datos e IA si el costo supera $50 USD/mes por dashboard
 
 ---
@@ -458,4 +595,9 @@ Si ves costos inesperadamente altos, revisar:
 ## Recursos adicionales
 
 - `references/dockerfile-nextjs.md` — Dockerfile optimizado para Next.js
-- `references/cloud-run-config.md` — configuraciones avanzadas (autenticación, memoria, cold starts)
+- `references/cloud-run-config.md` — configuraciones avanzadas
+  (autenticación, memoria, cold starts, y el hogar de la SA de runtime y
+  sus grants de BigQuery)
+- `epa-backend/references/sidecar.md` — la topología de dos contenedores en
+  detalle: comando de deploy completo, por qué no hay auth en el salto
+  `web`→`api`, dev local, troubleshooting del sidecar

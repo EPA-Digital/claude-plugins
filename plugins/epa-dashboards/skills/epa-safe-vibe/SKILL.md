@@ -7,8 +7,10 @@ description: >
   Run, Secret Manager, o cualquier API de medios. También activar ante
   cualquier señal de mala práctica: credenciales en código, Google Sheets
   como base de datos, operaciones destructivas (delete, drop, overwrite,
-  truncate), o acceso directo a APIs de medios/Pitágoras. Este skill es
-  BLOQUEANTE para malas prácticas y CONSULTIVO para el resto.
+  truncate), acceso directo a APIs de medios/Pitágoras, o un backend Go/gin
+  que exponga su propio `--port`/servicio de Cloud Run en vez de vivir como
+  sidecar. Este skill es BLOQUEANTE para malas prácticas y CONSULTIVO para
+  el resto.
 ---
 
 # EPA Safe Vibe — Guardrail de Seguridad
@@ -76,18 +78,25 @@ client_secret = "..."
 ACCESS_TOKEN = "ya29...."
 ```
 
-**Acción:** DETENER. Mostrar el patrón correcto — un dashboard Next.js
-**nunca** llama al SDK de Secret Manager desde su código; los secretos
-llegan como variables de entorno inyectadas al desplegar:
+**Acción:** DETENER. Mostrar el patrón correcto — ni el contenedor `web`
+(Next.js) ni el contenedor `api` (Go, ver `epa-backend`) llaman **nunca** al
+SDK de Secret Manager desde su código; los secretos llegan como variables de
+entorno inyectadas al desplegar, con `--set-secrets` en el `--container`
+que corresponda:
 
 ```yaml
-# En el workflow de deploy (ver epa-deploy)
---set-secrets=EPA_ADMIN_TOKEN=EpaAdminToken:latest
+# En el workflow de deploy (ver epa-deploy) — nota el --container
+--container=api --set-secrets=EPA_ADMIN_TOKEN=EpaAdminToken:latest
 ```
 
 ```typescript
-// En el route handler — se lee como env var normal, ya inyectada
+// apps/web — se lee como env var normal, ya inyectada
 const token = process.env.EPA_ADMIN_TOKEN
+```
+
+```go
+// apps/api — mismo patrón, vía viper/config.Cfg
+token := config.Cfg.AdminToken
 ```
 
 Secretos disponibles hoy en `epa-turing`: `FacebookAccessToken`,
@@ -113,18 +122,32 @@ doubleclickbidmanager.googleapis.com        ← DV360 reporting
 pitagoras-api-*.run.app                     ← Pitágoras (API REST o MCP/Tokyo)
 ```
 
-También bloquear librerías cliente que conectan directo:
+También bloquear librerías cliente que conectan directo, en cualquiera de
+los dos runtimes del dashboard:
 ```
+# TypeScript (apps/web)
 facebook-business, google-ads, google-analytics-data,
 linkedin-api / python-linkedin, TikTokBusinessSdk
+
+# Go (apps/api)
+google.golang.org/api/analyticsdata/*, google.golang.org/api/adsense/*,
+cualquier SDK generado para Google Ads / Meta Marketing API / TikTok Ads
 ```
 
 **Acción:** DETENER. Explicar:
 > "Un dashboard EPA nunca llama directo a una plataforma de medios ni a
-> Pitágoras. Lee los datos ya materializados en
-> `bdd-epa-digital.{cliente}_reporting` (ver `epa-bq`). Si el dato que
-> necesitas no está ahí, escala a datos@epa.digital — el único que llama a
-> Pitágoras es el ETL centralizado, y ese no es este proyecto."
+> Pitágoras — ni desde el contenedor `web` ni desde el contenedor `api`.
+> Lee los datos ya materializados en `bdd-epa-digital.{cliente}_reporting`
+> (ver `epa-bq`). Si el dato que necesitas no está ahí, escala a
+> datos@epa.digital — el único que llama a Pitágoras es el ETL
+> centralizado, y ese no es este proyecto."
+
+**Correr server-side NO es excepción.** Es tentador pensar "ya no es el
+navegador el que llama, es Go corriendo en el servidor, así que puedo ir
+directo a Meta/Pitágoras" — sigue prohibido. El límite no es
+navegador-vs-servidor, es qué fuente de datos se consulta: siempre
+`{cliente}_reporting`, nunca la plataforma de medios ni Pitágoras
+directamente, sin importar en qué contenedor corre el código.
 
 **Excepción:** Google Search Console API y CRM de cliente NO pasan por
 `{cliente}_reporting`. Para esos casos, conexión directa con su propio
@@ -147,16 +170,22 @@ BigQuery.
 
 ### 🔴 B5/B6 — Infraestructura incorrecta para el caso de uso
 
-Un dashboard EPA es una sola cosa: Next.js en Cloud Run leyendo BigQuery.
-Si el usuario propone otra pieza de infraestructura, bloquear y redirigir:
+Un dashboard EPA es **un repo, un servicio de Cloud Run, dos contenedores**:
+`web` (Next.js, ingress) y `api` (Go, sidecar sin ingress público, el único
+que consulta BigQuery). Construir el backend Go **no es un bloqueo, es la
+arquitectura** — ver `epa-backend`. Lo que sí sigue bloqueado:
 
 | Si el usuario propone... | Bloquear y proponer... |
 |---|---|
+| Un **segundo servicio** de Cloud Run para el backend Go | Un solo servicio con `--container=web --container=api` — ver `epa-backend/references/sidecar.md` |
+| Un backend Go **compartido entre dashboards** | Forkear `epa-standards-backend` por dashboard — nunca centralizado (ver `epa-backend` regla 1) |
+| `--port` en el contenedor `api`, o `--allow-unauthenticated` en cualquiera | El sidecar nunca tiene `--port` propio; el servicio siempre `--no-allow-unauthenticated` |
+| El contenedor `web` con un cliente de BigQuery propio | Todo dato de BigQuery pasa por `api` — ver `epa-frontend` regla 5 |
 | Google Sheets como base de datos | BigQuery (`{cliente}_reporting`) — ver `epa-bq` |
-| Apps Script como backend o para lógica de negocio del dashboard | Route handler de Next.js — ver `epa-frontend` |
+| Apps Script como backend o para lógica de negocio del dashboard | El contenedor `api` en Go — ver `epa-backend` |
 | Un ETL, job o pipeline propio dentro del dashboard | Escalar a datos@epa.digital — el dashboard no construye pipelines (ver `epa-frontend` regla 6) |
 | Compute Engine VM manual para el backend | Cloud Run — ver `epa-deploy` |
-| Secretos en `.env` commiteado | Secret Manager + `--set-secrets` en el deploy |
+| Secretos en `.env` commiteado | Secret Manager + `--set-secrets` en el `--container` que corresponda |
 
 ### 🔴 B7 — Deploy de Cloud Run sobre un servicio existente (overwrite silencioso)
 
@@ -176,8 +205,12 @@ ese nombre.
 2. **Sufijo `-vibe` — obligatorio en TODO dashboard, incluida producción.**
    No es solo una señal de "esto lo desplegó una IA": es la convención de
    naming de la plataforma completa. Un dashboard de cliente en producción
-   se llama `{cliente}-dashboard-web-vibe`, no `{cliente}-dashboard-web`.
-   Sin excepciones.
+   se llama `{cliente}-dashboard-vibe` — un solo servicio con los dos
+   contenedores (`web`/`api`) adentro, no un servicio por contenedor. Sin
+   excepciones. Los servicios que ya están desplegados como
+   `{cliente}-dashboard-web-vibe` (de antes de este cambio) **conservan su
+   nombre** — renombrar un servicio de Cloud Run le cambia la URL; el infijo
+   `-web` no se retira en servicios existentes, solo en los nuevos.
 3. **Verificar existencia antes de crear:** correr
    `gcloud run services list --project=epa-turing --region=us-central1` y
    confirmar que el nombre **NO existe ya** (o que es el mismo servicio y
@@ -257,6 +290,10 @@ Si el código hace queries sin `LIMIT`:
 > "⚠️ Sin LIMIT, esta query puede escanear millones de filas y generar
 > costos inesperados. Agrega un límite, filtro de fecha, o paginación."
 
+Aplica igual en Go: toda query del contenedor `api` declara
+`q.MaxBytesBilled` (ver `epa-backend/references/bigquery-repository.md`) —
+no es solo una convención de TypeScript.
+
 ---
 
 ## Checklist pre-deploy obligatorio
@@ -274,6 +311,9 @@ INFRAESTRUCTURA
 [ ] Corrí `gcloud run services list --project=epa-turing` y el nombre del
     servicio NO existe ya (o es el mío y quiero actualizarlo a propósito)
 [ ] El servicio termina en -vibe — sin excepción, incluida producción
+[ ] El contenedor `api` NO tiene `--port` — sigue siendo sidecar sin ingress
+[ ] `apps/web` no declara ningún cliente de BigQuery (@google-cloud/bigquery
+    o similar) — es el único control que compensa la SA compartida
 
 CÓDIGO
 [ ] Los 4 estados de datos están manejados (loading/error/empty/frescura)

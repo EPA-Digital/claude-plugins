@@ -9,11 +9,13 @@ Para alguien que ya empezó su dashboard con otro stack (u otras
 convenciones) y quiere dejarlo al estándar completo de EPA. Objetivo:
 `$1` (si no se dio, revisa el repo completo desde la raíz).
 
-**No depende de nada pendiente.** Aunque el stack de backend en Go (Eddy)
-y la librería de componentes (Dany) todavía no estén compartidos, este
-comando avanza con todo lo que sí es resoluble hoy — y reporta como
-bloqueado, explícitamente, lo que depende de esas dos piezas. No te
-detengas a esperarlas.
+**El backend en Go ya no es un bloqueo — es el Paso 6.** La plantilla de
+Eddy (`epa-standards-backend`) y la arquitectura de sidecar (`epa-backend`)
+ya están disponibles: si el proyecto consulta BigQuery directo desde route
+handlers, este comando migra eso a `apps/api` en Go, con tu confirmación
+antes de crear nada (ver Paso 6). Lo único que sigue bloqueado es la
+librería de componentes de Dany (`<REGISTRY_URL>` pendiente, ver
+`epa-frontend` regla 3) — eso sí se reporta bloqueado, sin intentarlo.
 
 ## Paso 1 — Auditar y corregir lo mecánico (autofix)
 
@@ -70,6 +72,11 @@ Busca y migra:
 - `SELECT *` o queries sin `LIMIT`/filtro de fecha → corregir con el
   patrón de `epa-bq/references/cost-and-access.md`.
 
+Corrige estos tres puntos donde sea que vivan las queries hoy (típicamente
+un route handler) — son correcciones de dataset/API, no de arquitectura.
+Si el proyecto todavía consulta BigQuery directo desde `apps/web`/route
+handlers, ese movimiento de arquitectura completo es el Paso 6.
+
 ## Paso 5 — Correr las revisiones existentes
 
 Una vez aplicado lo anterior:
@@ -79,18 +86,43 @@ Una vez aplicado lo anterior:
 Incluye ambos resultados en el reporte final (Paso 6), no los muestres
 por separado.
 
-## Paso 6 — Reportar lo bloqueado, sin intentarlo
+## Paso 6 — Migrar a la arquitectura de dos contenedores (con tu confirmación)
 
-No intentes resolver esto — repórtalo como bloqueado, igual que el
-`<REGISTRY_URL>` pendiente:
+Si el proyecto consulta BigQuery directo desde `apps/web`/route handlers
+(la arquitectura anterior), esto ya no es un bloqueo — es una migración
+real, con este procedimiento:
 
-- **Backend en otro stack** (Go, Python, un servicio separado): la
-  migración de backend depende del stack que va a compartir Eddy. No
-  propongas una reescritura — señala qué archivos/rutas son backend y que
-  quedan pendientes.
-- **Componentes de UI hechos a mano:** depende de la librería de Dany y
-  del `<REGISTRY_URL>` del registry (ver `epa-frontend` regla 3). Lista
-  los componentes caseros encontrados, no los reescribas todavía.
+1. **Inventariar**, sin tocar nada todavía: cada lugar del proyecto que
+   hoy consulta BigQuery — qué dimensiones, métricas, agregaciones y
+   filtros expone cada uno. Esto se convierte 1:1 en los recursos
+   (`entity`/`ports`/`service`/`repository`/`handlers`) que va a tener
+   `apps/api`.
+2. **Proponer el plan al usuario y esperar confirmación explícita antes
+   de crear nada** — cuántos recursos, en qué orden se migran, si hay
+   endpoints que se pueden agrupar en un solo recurso. No asumas que
+   "migrar" autoriza reestructurar todo de una sola vez.
+3. Una vez confirmado:
+   - Mover el código actual del dashboard a `apps/web/` dentro del mismo
+     repo (si no vivía ya ahí).
+   - Forkear `epa-standards-backend` a `apps/api/` siguiendo
+     `epa-backend/references/fork-checklist.md`.
+   - Un slice completo (las 6 capas) por recurso del inventario del paso
+     1 — ver `epa-backend/references/bigquery-repository.md` como
+     plantilla.
+   - Borrar el cliente de BigQuery de `apps/web` por completo
+     (`@google-cloud/bigquery` u otro) y quitar los permisos de BigQuery
+     de la SA que usaba el frontend, si tenía una propia — el patrón final
+     es una sola SA de runtime compartida (ver
+     `epa-deploy/references/cloud-run-config.md`).
+   - Un solo workflow de deploy con `--container=web --container=api` (ver
+     `epa-deploy/SKILL.md`) — nunca dos servicios de Cloud Run.
+4. Correr `security-reviewer` de nuevo después de migrar — su sección 7
+   está diseñada exactamente para esta frontera.
+
+**Componentes de UI hechos a mano** siguen bloqueados de verdad — repórtalo
+sin intentarlo: depende de la librería de Dany y del `<REGISTRY_URL>` del
+registry (ver `epa-frontend` regla 3). Lista los componentes caseros
+encontrados, no los reescribas todavía.
 
 ## Salida obligatoria
 
@@ -100,11 +132,13 @@ Tabla consolidada:
 |---|---|---|---|---|
 | ... | ... | ... | migrado / requiere tu ok / bloqueado (pendiente de X) | ... |
 
-Cierra siempre con un resumen:
+Cierra siempre con un resumen, separando lo que ya no depende de nadie de
+lo que sigue bloqueado por Dany:
 
 > "N cambios aplicados automáticamente. M requieren tu confirmación antes
-> de aplicarse. K quedan bloqueados hasta que Eddy/Dany compartan su
-> parte."
+> de aplicarse. [Si aplica: "La migración a apps/api (Go) está lista para
+> empezar en cuanto confirmes el inventario del Paso 6."] K componentes
+> caseros quedan bloqueados hasta que Dany comparta su librería."
 
 Si algo requiere tu confirmación, pregúntalo explícitamente antes de
 tocar esos archivos — no asumas que "migrar" significa autorización para

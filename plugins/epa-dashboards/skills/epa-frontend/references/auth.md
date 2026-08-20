@@ -38,6 +38,26 @@ el estado objetivo (abajo) va a tener que deshacer.
 
 ---
 
+## Frontera interna: `web` → `api` (sidecar)
+
+Esto es distinto del acceso externo de arriba. Dentro del mismo servicio de
+Cloud Run, el contenedor `web` llama al contenedor `api` en
+`http://localhost:8081` — es tráfico **intra-instancia**, no tiene URL
+pública ni pasa por el load balancer, así que no lleva (ni necesita) ID
+token, JWT, ni ningún otro mecanismo de auth. El detalle completo de por qué
+y cómo está desplegado vive en `epa-backend/references/sidecar.md` — no se
+duplica aquí.
+
+Dos reglas concretas de este lado (`apps/web`):
+- `EPA_API_BASE_URL` **nunca** es `NEXT_PUBLIC_*` — no hay razón para que el
+  navegador la vea, y exponerla es un hallazgo de `security-reviewer` §7.
+- Si en el futuro hay identidad de usuario que propagar hacia `api` (para
+  row filters, ver abajo), la agrega el route handler como header saliente
+  al hacer el `fetch` — el navegador nunca habla con `api` directamente ni
+  construye ese header.
+
+---
+
 ## Estado objetivo (Etapa 3 de la plataforma, todavía no existe)
 
 IAP en modo external identities + Identity Platform (single tenant). El
@@ -56,13 +76,14 @@ Escribir código nuevo pensando en esta forma (un `getUser()` que puede
 devolver `null`) para no botar trabajo cuando IAP llegue — pero no
 implementar el helper todavía, porque no hay nada real que verificar.
 
-**Row filters / control de acceso a datos por cuenta:** cuando existan,
-siempre se aplican en el servidor (dentro del route handler, antes de
-construir la query), nunca solo ocultando elementos en la UI. Ver
-`security-reviewer` §5 — esto ya se audita hoy aunque el login no exista,
-porque un dashboard mal filtrado puede filtrar datos de un cliente a otro
-incluso sin un sistema de login formal (ej. un parámetro de URL sin
-validar).
+**Row filters / control de acceso a datos por cuenta:** cuando existan, se
+aplican en el contenedor `api` (Go), dentro del service, antes de construir
+la query — el route handler de `apps/web` ya no arma SQL, así que no es el
+lugar correcto para filtrar filas. Nunca basta con ocultar elementos en la
+UI. Ver `security-reviewer` §7 — esto ya se audita hoy aunque el login no
+exista, porque un dashboard mal filtrado puede filtrar datos de un cliente a
+otro incluso sin un sistema de login formal (ej. un parámetro de URL sin
+validar que llega hasta el service Go).
 
 ---
 

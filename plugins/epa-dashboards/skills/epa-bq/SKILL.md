@@ -43,6 +43,12 @@ Si hay más de un candidato, confirmar con el usuario cuál es antes de
 continuar. `/client-context {cliente}` hace esta resolución por ti y la deja
 documentada — ver regla 6.
 
+> **Quién ejecuta estas queries:** el contenedor `api` (Go), sidecar del
+> mismo servicio de Cloud Run — nunca el frontend Next.js (ver
+> `epa-frontend` regla 5). Este skill define el *qué*: qué dataset, qué
+> vistas, qué casteos. El *cómo* en Go — el repositorio, la parametrización,
+> `MaxBytesBilled` — vive en `epa-backend/references/bigquery-repository.md`.
+
 ---
 
 ## Regla 1 — Deduplicación (aplica a todo el dataset)
@@ -95,8 +101,9 @@ dashboard debe mostrar **"Datos al {fecha}"** usando la fecha real de
   algunas cientos de millones — ver `references/schema-google-transfer.md`).
   Siempre filtro de fecha + `LIMIT` en exploración.
 - **Nunca `SELECT *` en código de producción.**
-- Toda query desde un route handler declara `maximumBytesBilled` (ver
-  `references/cost-and-access.md`).
+- Toda query, ejecutada desde el contenedor `api` en Go, declara
+  `q.MaxBytesBilled` (ver `references/cost-and-access.md` y
+  `epa-backend/references/bigquery-repository.md`).
 
 ---
 

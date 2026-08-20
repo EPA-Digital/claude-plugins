@@ -24,8 +24,8 @@ que mencionan `@epa/*` en las secciones 2 y 5 de abajo.
 |---|---|---|
 | Charts | Recharts directo + las 6 reglas de `epa-frontend` (título/subtítulo, comparación punteada, colores por canal, máx. 6 series, cifras formateadas, botón "Ver tabla") | `@epa/charts` — wrapper sobre Recharts + componentes propios. El vibecoder nunca importa Recharts directo. |
 | Primitivas UI | Registry EPA de shadcn (`pnpm dlx shadcn add @epa/{componente}`, URL pendiente — ver `<REGISTRY_URL>` en `SKILL.md`) | `@epa/ui` — primitivas Radix publicadas **compiladas**; el vibecoder no las edita localmente. |
-| Acceso a datos | Route handlers del proyecto con queries parametrizadas a BigQuery | `@epa/data` — hook `useReport()` sobre TanStack Query + BFF con query builder y row filters. El vibecoder no escribe SQL. |
-| Backend del dashboard | El dashboard tiene sus propios route handlers | El BFF del template (`create-epa-dashboard`) es el único backend — "el vibecoder nunca crea route handlers nuevos". |
+| Acceso a datos | Route handlers del proyecto hacen `fetch` al backend Go (`apps/api`, sidecar), que corre las queries parametrizadas a BigQuery — ver `epa-backend` | **SUPERSEDED por la decisión de Go** (2026-08, ver nota abajo) — `@epa/data` como BFF en TypeScript ya no aplica. `useReport()` sobre TanStack Query sigue siendo válido del lado del navegador; lo que cambia es qué hay detrás: Go, no un BFF de Node. |
+| Backend del dashboard | `apps/api` — backend en Go forkeado de `epa-standards-backend`, sidecar del mismo servicio de Cloud Run que `apps/web` | **SUPERSEDED** — "el BFF del template es el único backend" describía un backend en TypeScript. El equipo decidió Go por depurabilidad del equipo de datos (ver `epa-backend/SKILL.md`), no TypeScript. Los route handlers de `apps/web` **siguen existiendo** — son el proxy obligatorio hacia `apps/api`, no algo a reemplazar. |
 | Creación del proyecto | Se sigue este skill a mano sobre un `create-next-app` no interactivo (ver sección 2) | `npx create-epa-dashboard {cliente}-{dashboard}` — template congelado con todo preinstalado. |
 
 > **Input registrado durante la planeación de este plugin** (José Carlos
@@ -43,6 +43,26 @@ que mencionan `@epa/*` en las secciones 2 y 5 de abajo.
 > monorepo de librerías — es una decisión de arquitectura que no toma este
 > documento ni este plugin. Queda pendiente de que el equipo la resuelva
 > antes de la Etapa 2.
+
+> **SUPERSEDED (2026-08) — el backend del dashboard es Go, no `@epa/data`.**
+> Cuando se escribió este documento (v1.0, agosto 2026), el plan de acceso
+> a datos era un BFF en TypeScript (`@epa/data`) integrado al template. El
+> equipo decidió en junta que el backend real es **Go**, forkeado por
+> dashboard de `epa-standards-backend`, por depurabilidad del equipo de
+> datos — no por mérito técnico de Go sobre un BFF en TS (ver
+> `epa-backend/SKILL.md` para el detalle completo). No se borra esta
+> sección para no perder el porqué y evitar re-litigarlo.
+>
+> **Lo que NO cambia:** `@epa/ui`, `@epa/charts` y `@epa/tokens` (el
+> trabajo de Dany) siguen enteramente del lado Next.js — no hay backend
+> involucrado en ninguno de los tres. `@epa/auth` sobrevive **parcial**: la
+> verificación del JWT que IAP inyecta sigue pasando en `apps/web` (es
+> quien recibe el request del navegador); lo que se mueve es el row
+> filtering — antes se imaginaba dentro del BFF de `@epa/data`, ahora vive
+> en el service de `apps/api` (Go), porque es ahí donde se construye la
+> query. Si `@epa/auth` llega a existir, su contrato de `getUser()` no
+> cambia — lo que cambia es qué hace `apps/web` con esa identidad después
+> de obtenerla (propagarla a `apps/api`, no filtrar ella misma).
 
 ---
 
@@ -149,9 +169,14 @@ Lenguaje         TypeScript estricto (sección 3) — any prohibido por lint
 Estilos          Tailwind v4 + @epa/tokens — cero CSS custom
 UI               @epa/ui (Radix primitives, publicado compilado)
 Charts           @epa/charts (Recharts + componentes propios) — Recharts nunca se importa directo
-Datos            @epa/data (TanStack Query + BFF + query builder con row filters) + Zod
+Backend          Go + gin, forkeado por dashboard de epa-standards-backend,
+                 sidecar del mismo servicio — ver epa-backend (SUPERSEDE a
+                 @epa/data como BFF, ver nota de arriba)
+Datos            TanStack Query en el navegador + Zod en el route handler
+                 que hace fetch al backend Go
 Filtros/URL      nuqs
-Auth             @epa/auth (verificación JWT de IAP + getUser)
+Auth             @epa/auth (verificación JWT de IAP + getUser, en apps/web)
+                 — row filters se aplican en apps/api, no en @epa/auth
 Formateo         Prettier + prettier-plugin-tailwindcss
 Lint             ESLint flat + typescript-eslint strict-type-checked + reglas EPA
 Testing          Vitest + RTL (smoke) · Playwright en el kit
@@ -165,12 +190,18 @@ CI               epa-deploy: typecheck + lint + build como gate de deploy
 ✗ npm / yarn / bun            → un solo gestor; phantom deps y lockfiles mixtos rompen CI                    [vigente hoy]
 ✗ any, @ts-ignore             → error de lint; @ts-expect-error solo con descripción                          [vigente hoy]
 ✗ CSS custom / styled-comp.   → rompe el control central de diseño; todo sale de tokens                        [vigente hoy]
-✗ fetch directo a BQ/APIs     → todo dato pasa por un route handler con auth + queries parametrizadas          [vigente hoy]
+✗ fetch directo a BQ/APIs     → todo dato pasa por un route handler que hace fetch al backend Go (apps/api)     [vigente hoy]
 ✗ Pages Router / mezclas      → App Router únicamente                                                          [vigente hoy]
 ✗ create-next-app interactivo → los dashboards se arman siguiendo SKILL.md (a futuro: create-epa-dashboard)    [vigente hoy]
 ✗ import de recharts/radix directo → solo vía @epa/charts y @epa/ui; wrappers son el contrato                  [futuro, con el kit]
-✗ route handlers nuevos       → el BFF del template es el único backend del dashboard                          [futuro, con el kit]
+✗ cliente de BigQuery en apps/web  → único control que compensa la SA compartida con apps/api (ver epa-backend) [vigente hoy]
 ```
+
+> La fila "route handlers nuevos → el BFF del template es el único backend"
+> que existía aquí fue retirada — quedó doblemente obsoleta: el BFF de
+> `@epa/data` está SUPERSEDED (ver la nota de arriba), y los route
+> handlers de `apps/web` son ahora el proxy permanente hacia `apps/api`, no
+> algo a reemplazar cuando llegue el kit.
 
 Detalle completo de las prohibiciones vigentes hoy, con el porqué en una
 línea cada una: ver `references/anti-stack.md`.
