@@ -12,14 +12,24 @@ autenticación, concurrency, scaling).
 
 ---
 
-## Recursos para un dashboard Next.js
+## Recursos por contenedor
 
-| CPU | Memoria | Min instances | Max instances | Concurrency |
-|---|---|---|---|---|
-| 1 | 1Gi | 0 | 3 | 80 |
+Un dashboard es un servicio con dos contenedores — los recursos se
+configuran **por contenedor**, y el límite real de la instancia es la
+**suma** de los dos (ver `epa-backend/references/sidecar.md` para el
+comando de deploy completo):
 
-`min-instances=0` por default (zero cost en idle). Solo subir a 1+ cuando
-hay SLA de latencia y se acepta el costo fijo (~$5/mes extra).
+| Contenedor | CPU | Memoria | Min instances | Max instances | Concurrency |
+|---|---|---|---|---|---|
+| `web` (Next.js, ingress) | 1 | 1Gi | 0 | 10 | 80 |
+| `api` (Go, sidecar) | 1 | 512Mi | — (sigue la del servicio) | — | — |
+
+`--min-instances`/`--max-instances`/concurrency son **service-level** (van
+antes del primer `--container`) — se aplican a la instancia completa, no
+por contenedor. `min-instances=0` por default (zero cost en idle). Solo
+subir a 1+ cuando hay SLA de latencia y se acepta el costo fijo del
+servicio completo (~$8-10/mes extra, más que un solo contenedor porque el
+sidecar suma su propio vCPU/memoria).
 
 ---
 
@@ -61,37 +71,68 @@ gcloud run deploy {servicio} --allow-unauthenticated ...
 
 ---
 
-## Service account dedicado por dashboard
+## Service account dedicado por dashboard — hogar único de estos grants
 
 NO compartir el default compute service account entre dashboards de
 distintos clientes. Cada dashboard tiene su propia identity con permisos
 mínimos — esto es lo que hace posible aislar qué cliente puede leer qué
 dataset.
 
+**Una sola SA, compartida por los dos contenedores** (`web` y `api`) — no
+hay SA separada por contenedor. Esto es deliberado (ver "por qué no hay
+auth en el salto" en `epa-backend/references/sidecar.md`): el costo es que
+`web` hereda permisos de BigQuery que no usa; el control compensatorio es
+que `web` nunca declara un cliente de BigQuery en su código (ver
+`epa-frontend` regla 5, verificado por `security-reviewer` §7).
+
+Esta sección es la **única fuente** de los comandos de estos grants —
+`epa-backend/references/sidecar.md` y `epa-deploy/SKILL.md` apuntan aquí,
+no los repiten.
+
 ```bash
 gcloud iam service-accounts create {cliente}-dashboard-runtime \
-  --display-name="{Cliente} Dashboard Runtime" \
+  --display-name="{Cliente} Dashboard Runtime (web + api)" \
   --project=epa-turing
 
-# Permiso mínimo: leer el dataset de BigQuery de ese cliente
+# 1) Permiso para CORRER queries — sin este rol, la primera query del
+#    contenedor api da 403 "bigquery.jobs.create" aunque dataViewer ya
+#    esté otorgado. dataViewer por sí solo NO incluye este permiso.
+gcloud projects add-iam-policy-binding epa-turing \
+  --member="serviceAccount:{cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com" \
+  --role="roles/bigquery.jobUser"
+
+# 2) Permiso para LEER el dataset de ese cliente — y solo ese dataset.
 gcloud projects add-iam-policy-binding epa-turing \
   --member="serviceAccount:{cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com" \
   --role="roles/bigquery.dataViewer" \
-  --condition='expression=resource.name.startsWith("projects/bdd-epa-digital/datasets/{cliente}_reporting")'
+  --condition='expression=resource.name.startsWith("projects/bdd-epa-digital/datasets/{cliente}_reporting"),title={cliente}-reporting-only'
 
-# Asignar al servicio
-gcloud run deploy {cliente}-dashboard-web-vibe \
+# Asignar al servicio — una sola bandera, se aplica a ambos contenedores.
+gcloud run deploy {cliente}-dashboard-vibe \
   --service-account={cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com \
   ...
 ```
+
+Los **dos** roles de BigQuery son necesarios — no es opcional otorgar solo
+uno. `dataViewer` gobierna qué datos se pueden leer; `jobUser` gobierna si
+se puede correr un job de query en absoluto. Faltando cualquiera de los
+dos, el contenedor `api` no puede servir ni un solo request de datos reales.
 
 ---
 
 ## Variables de entorno y secrets
 
+Estas banderas van **dentro de su `--container`** — cada contenedor tiene
+su propio set. Usar siempre `--update-env-vars`, no `--set-env-vars`: en
+cuanto el mismo contenedor tenga más de una bandera de env vars en su
+historial de deploys (casi siempre el caso — `api` ya trae varias del
+template de `sidecar.md`), `--set-env-vars` reemplaza el set completo en
+vez de agregar, y una variable que ya estaba configurada desaparece sin
+aviso.
+
 ### Variables planas (no sensibles)
 ```bash
---set-env-vars="EPA_LOG_LEVEL=info,EPA_GCP_PROJECT=epa-turing,EPA_REGION=us-central1"
+--update-env-vars="EPA_LOG_LEVEL=info,EPA_GCP_PROJECT=epa-turing,EPA_REGION=us-central1"
 ```
 
 ### Secrets desde Secret Manager
@@ -102,6 +143,36 @@ gcloud run deploy {cliente}-dashboard-web-vibe \
 Formato: `EPA_VAR_NAME=NombreSecret:version`. Usar `:latest` salvo cuando
 se quiere pinear (raro). El service account del runtime necesita
 `roles/secretmanager.secretAccessor` sobre cada secret.
+
+---
+
+## Multi-contenedor
+
+Verificado contra `gcloud run deploy --help` (SDK 580.0.0), sección
+*Container Flags*: *"The following flags apply to a single container. If
+the `--container` flag is specified these flags may only be specified
+after a `--container` flag."*
+
+```
+Service-level (ANTES del primer --container):
+  --project --region --service-account --no-allow-unauthenticated
+  --min-instances --max-instances --labels --concurrency
+
+Container-scoped (DESPUÉS de su --container):
+  --image --port --memory --cpu --depends-on --startup-probe
+  --liveness-probe --readiness-probe --args --workdir
+  --set-env-vars / --update-env-vars / --set-secrets (por contenedor)
+```
+
+- `--depends-on=api` en el contenedor `web` ordena el arranque: Cloud Run
+  arranca `api` primero y espera su startup probe antes de arrancar `web`
+  — evita servir tráfico antes de que el backend esté listo.
+- **El contenedor `api` nunca lleva `--port`.** Es lo único que lo
+  mantiene sin ingress público — sin él, no hay URL externa que alcanzar,
+  ni con IAM mal configurado. `PORT=8081` va como env var explícita porque
+  sin `--port` Cloud Run tampoco la inyecta.
+- El comando de deploy completo, con los dos `--container`, vive en
+  `epa-backend/references/sidecar.md` — no se repite aquí.
 
 ---
 
@@ -134,16 +205,35 @@ Si una query de BigQuery tarda más que esto, el problema es la query (ver
 
 ## Health checks
 
+Cada contenedor expone su propio health check, en rutas deliberadamente
+distintas (convención de la plantilla de Eddy para `api` — no se cambia):
+
 ```typescript
-// app/api/health/route.ts
+// apps/web — app/api/health/route.ts
 export async function GET() {
   return Response.json({ status: "ok" })
 }
 ```
 
+```go
+// apps/api — GET /health, ya en internal/infrastructure/api/routes.go
+r.GET("/health", func(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+})
+```
+
+Solo `/api/health` de `web` es alcanzable desde fuera del servicio — `api`
+no tiene ingress público, así que su `/health` solo lo consulta el startup
+probe de Cloud Run (intra-instancia) y `web` vía `--depends-on`, nunca
+nadie desde internet.
+
 Configurar startup probe en deploy:
 ```bash
+# web (opcional, para cold starts)
 --startup-cpu-boost   # Más CPU durante startup (reduce cold starts)
+
+# api (obligatorio — es lo que ordena el arranque con --depends-on)
+--startup-probe=httpGet.path=/health,httpGet.port=8081
 ```
 
 ---
@@ -172,8 +262,8 @@ Configurar alertas en Cloud Monitoring → Alerting:
 
 | Causa | Mitigación |
 |---|---|
-| Bundle grande de Next.js | Verificar `output: 'standalone'`, revisar dependencias pesadas |
-| Conexión a BigQuery en cada request | Reusar el cliente de `@google-cloud/bigquery` entre requests (no recrearlo) |
+| Bundle grande de Next.js (`web`) | Verificar `output: 'standalone'`, revisar dependencias pesadas |
+| Conexión a BigQuery en cada request (`api`) | Reusar el `*bigquery.Client` singleton entre requests — ver el patrón `sync.Once` en `epa-backend/references/bigquery-repository.md`, nunca recrearlo por request |
 | Muchas dependencias en startup | `min-instances=1` con `--cpu-throttling` si el SLA lo justifica |
 
 ```bash
@@ -231,7 +321,9 @@ OBSERVABILIDAD
 SEGURIDAD
 [ ] No hay credenciales en variables planas
 [ ] roles/run.invoker otorgado solo a quien debe ver este dashboard
-[ ] Row filters de acceso a datos aplicados en el servidor, no solo en UI
+[ ] Row filters de acceso a datos aplicados en el contenedor api (Go),
+    antes de construir la query — no solo en la UI ni en el route handler
+[ ] apps/web no declara ningún cliente de BigQuery propio
 
 COSTO
 [ ] Memoria justificada (1Gi por default para Next.js)

@@ -32,9 +32,27 @@ corrige antes de seguir.
     bdd-epa-digital.{cliente}_reporting en BigQuery — nunca la API de la
     plataforma ni Pitágoras directo (ver epa-bq).
 
-✗ SQL por concatenación de strings
+✗ SQL por concatenación de strings (TypeScript o Go)
   → Vector de inyección y de fuga cross-cliente. Toda query va parametrizada
-    (ver epa-bq y security-reviewer).
+    — `q.Parameters` en Go, nunca `fmt.Sprintf` con un valor del request
+    (ver epa-bq, epa-backend y security-reviewer). La única interpolación
+    permitida es de identificadores (dataset, sufijo de MCC) que salen de
+    config validada por regex al arrancar — nunca de un valor del request.
+
+✗ `@google-cloud/bigquery` (o cualquier cliente de BigQuery) en `apps/web`
+  → El frontend y el backend Go comparten service account (arquitectura de
+    sidecar, ver epa-backend). Que `apps/web` nunca hable con BigQuery es lo
+    único que compensa eso — es un hallazgo **crítico** de security-reviewer,
+    no una preferencia de estilo.
+
+✗ Fetch del navegador directo a `localhost:8081` (o "hacerlo público para
+  que funcione")
+  → El sidecar `api` no tiene ingress público — no hay URL que alcanzar
+    desde el navegador, ni con IAM mal configurado. Si un fetch al backend
+    falla, la corrección es revisar el route handler que hace de proxy
+    (server-side), nunca desplegar `api` con su propio `--port` o su propio
+    servicio para "que le llegue" al navegador — eso es un hallazgo crítico,
+    no un workaround válido.
 
 ✗ Pages Router, o mezclar Pages Router con App Router
   → App Router únicamente — es la unidad deployable con el backend
@@ -53,9 +71,9 @@ corrige antes de seguir.
   → Cuando exista el kit, @epa/charts y @epa/ui son el único wrapper
     permitido — mantienen tokens, formato de cifras y accesibilidad
     consistentes entre todos los dashboards.
-
-✗ Route handlers nuevos en el dashboard
-  → Cuando exista create-epa-dashboard, el BFF del template es el único
-    backend del dashboard. Hoy, mientras no exista, el dashboard sí tiene
-    route handlers propios — ver la regla 5 del SKILL.md.
 ```
+
+> El BFF del template (`@epa/data`) como "único backend del dashboard" fue
+> **SUPERSEDED** por la decisión de Go — ver `references/stack.md`. Los
+> route handlers de `apps/web` no son algo a reemplazar cuando llegue el
+> kit: son la capa de proxy obligatoria hacia el backend Go, permanente.

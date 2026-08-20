@@ -6,11 +6,11 @@ o un dashboard generado con él.
 **Qué es este repo:** el marketplace de un solo plugin, `epa-dashboards`,
 exclusivo para generar y estandarizar dashboards de EPA Digital. Invariantes
 al mantenerlo: `marketplace.json` tiene **una** entrada, el plugin tiene
-**5 skills** (`epa-frontend`, `epa-bq`, `epa-design`, `epa-deploy`,
-`epa-safe-vibe`) + 3 comandos + 1 agente + 1 hook en `hooks/` (raíz del
-plugin), y **este repo no hospeda paquetes npm** — si algún día el kit
-`@epa/*` de la plataforma de dashboards quiere vivir aquí, es una decisión
-deliberada del equipo, no una deriva. Validar siempre con
+**6 skills** (`epa-frontend`, `epa-backend`, `epa-bq`, `epa-design`,
+`epa-deploy`, `epa-safe-vibe`) + 4 comandos + 1 agente + 1 hook en
+`hooks/` (raíz del plugin), y **este repo no hospeda paquetes npm** — si
+algún día el kit `@epa/*` de la plataforma de dashboards quiere vivir aquí,
+es una decisión deliberada del equipo, no una deriva. Validar siempre con
 `claude plugin validate .` antes de un PR.
 
 ---
@@ -71,12 +71,15 @@ cross-cliente — un rollup entre varios clientes se escala a Datos e IA.
 
 ```
 Frontend:        Next.js 15 App Router + Tailwind CSS + pnpm, en Cloud Run
+Backend:         Go + gin, forkeado por dashboard de epa-standards-backend,
+                 desplegado como sidecar del mismo servicio (nunca un
+                 servicio propio) — el único que consulta BigQuery
 Datos:            BigQuery (bdd-epa-digital.{cliente}_reporting)
 CI/CD:           GitHub Actions → Artifact Registry → Cloud Run
 Branding:        EPA Blue #003AD6, IBM Plex Sans/Mono
 ```
 
-Detalles completos: skill `epa-frontend` del plugin.
+Detalles completos: skills `epa-frontend` y `epa-backend` del plugin.
 
 ---
 
@@ -113,18 +116,19 @@ Detalles y procedimientos de recuperación:
 
 ## El plugin de este repo
 
-`epa-dashboards` — un solo plugin, 5 skills, se activan solas según el
+`epa-dashboards` — un solo plugin, 6 skills, se activan solas según el
 contexto:
 
 | Skill | Cubre |
 |---|---|
 | `epa-frontend` | Stack cerrado (Node 22, pnpm, Next.js, TS estricto, Tailwind, Recharts), auth |
+| `epa-backend` | Backend en Go por dashboard (fork de epa-standards-backend), BigQuery, sidecar |
 | `epa-bq` | Convenciones de `{cliente}_reporting`, control de costo |
 | `epa-design` | Design system EPA (tokens, componentes, copy) |
-| `epa-deploy` | Deploy a Cloud Run vía GitHub Actions |
+| `epa-deploy` | Deploy a Cloud Run vía GitHub Actions (dos contenedores) |
 | `epa-safe-vibe` | Guardrails de seguridad + hook de deploy |
 
-Más 3 comandos (`/plan-dashboard`, `/client-context`, `/critique-epa`,
+Más 4 comandos (`/plan-dashboard`, `/client-context`, `/critique-epa`,
 `/migrate-to-epa`) y el agente `security-reviewer`.
 
 Instalación:
@@ -140,18 +144,26 @@ O dejar que `extraKnownMarketplaces`/`enabledPlugins` en
 
 ## Reglas de oro para dashboards en epa-turing
 
-1. **Datos de medios → siempre `{cliente}_reporting` en BigQuery.** Nunca
-   directo a Meta/Google Ads/TikTok/Bing ni a Pitágoras.
-2. **Toda query con `LIMIT` o `maximumBytesBilled`.** Sin tope, una query
-   accidental puede costar cientos de dólares.
-3. **Credenciales → Secret Manager vía `--set-secrets`.** Nunca en `.env`
-   commiteado, nunca en strings literales.
-4. **Variables de entorno:** `EPA_*` en servidor, `NEXT_PUBLIC_*` en
-   cliente.
-5. **Todo servicio de Cloud Run termina en `-vibe`** — siempre, incluida
-   producción. Nunca desplegar en `bdd-epa-digital` ni `ga360-250517`.
+1. **Datos de medios → siempre `{cliente}_reporting` en BigQuery, leídos
+   desde el backend Go.** Nunca directo a Meta/Google Ads/TikTok/Bing ni a
+   Pitágoras, y nunca desde el frontend — el frontend no tiene cliente de
+   BigQuery.
+2. **Toda query con `LIMIT` y `MaxBytesBilled`/`maximumBytesBilled`.** Sin
+   tope, una query accidental puede costar cientos de dólares.
+3. **Credenciales → Secret Manager vía `--set-secrets`, por contenedor.**
+   Nunca en `.env` commiteado, nunca en strings literales.
+4. **Variables de entorno:** `EPA_*` en servidor (ambos contenedores),
+   `NEXT_PUBLIC_*` solo en el navegador.
+5. **Un dashboard es un repo y un servicio de Cloud Run con dos
+   contenedores** (`web` + `api`, el segundo sidecar sin ingress público)
+   — el servicio termina en `-vibe`, siempre, incluida producción. Nunca
+   un segundo servicio para el backend. Nunca desplegar en
+   `bdd-epa-digital` ni `ga360-250517`.
 6. **UI = design system EPA.** IBM Plex, `#003AD6`, sin CSS custom, sin
    componentes hechos a mano.
+7. **El frontend nunca declara un cliente de BigQuery.** Es el único
+   control que compensa que los dos contenedores comparten service
+   account — ver `epa-backend`.
 
 ---
 

@@ -25,7 +25,7 @@ Paquetes         pnpm — NUNCA npm, yarn ni bun (ver anti-stack.md)
 Framework        Next.js 15 · App Router · src/ · Turbopack · alias @/*
 Lenguaje         TypeScript estricto (regla 2)
 Estilos          Tailwind v4 con tokens EPA — cero CSS custom
-Validación       Zod en todos los boundaries (respuestas de route handlers,
+Validación       Zod en todos los boundaries (respuestas del backend Go,
                  params de URL, configs)
 Datos            TanStack Query
 Filtros/URL      nuqs
@@ -102,22 +102,37 @@ shadcn/ui charts. Reglas obligatorias, sin excepción:
 
 ## Regla 5 — Datos
 
-Todo acceso a BigQuery pasa por **route handlers del proyecto** con queries
-**parametrizadas**.
+El frontend **no tiene cliente de BigQuery**. Todo dato sale del backend Go
+(contenedor `api`, sidecar en `localhost:8081` — ver `epa-backend`) vía un
+route handler que hace `fetch` a `EPA_API_BASE_URL`, reenvía filtros y
+valida la respuesta con **Zod**. El route handler es un proxy delgado: no
+arma SQL, no decide agregaciones, solo tipa y valida.
 
-- Nunca `fetch` a APIs externas (de medios o de cualquier otra plataforma)
-  desde el cliente.
-- Nunca SQL por concatenación de strings — ver `epa-bq` y el agente
-  `security-reviewer`.
+- **Nunca** `@google-cloud/bigquery` (ni ningún otro cliente de BQ) en
+  `apps/web` — es el único control que compensa que `web` y `api` comparten
+  service account (ver `epa-backend/references/sidecar.md`). Es un hallazgo
+  **crítico** de `security-reviewer`, no un detalle de estilo.
+- **Nunca** `fetch` del navegador directo a `localhost:8081` — no existe
+  fuera de la instancia de Cloud Run; solo el route handler (server-side) lo
+  alcanza.
+- Nunca SQL por concatenación de strings en ningún runtime — ver `epa-bq` y
+  el agente `security-reviewer`.
 
 ---
 
-## Regla 6 — Sin backend propio
+## Regla 6 — El backend vive en `apps/api`, no aquí
 
-El dashboard no tiene backend fuera de sus propios route handlers. Si el
-proyecto parece necesitar un job programado, un ETL o un servicio aparte:
-**detente** y dile al usuario que eso se escala al equipo de datos
-(`datos@epa.digital`) — no lo construyas tú.
+Un dashboard es un monorepo: `apps/web` (este proyecto) + `apps/api` (Go,
+fork de `epa-standards-backend`), desplegados juntos como un solo servicio
+de Cloud Run con dos contenedores. El backend **no se construye desde esta
+skill** — su arquitectura, su capa de BigQuery y su despliegue viven en
+`epa-backend`.
+
+Lo que sigue sin construirse en ninguno de los dos contenedores: un job
+programado, un ETL, un pipeline de ingesta, o un **segundo servicio** de
+Cloud Run. Si el proyecto parece necesitar algo de eso: **detente** y dile
+al usuario que se escala al equipo de datos (`datos@epa.digital`) — no lo
+construyas tú.
 
 ---
 
@@ -137,9 +152,14 @@ y del plugin `epa-dashboards`.
 
 ## Reglas del proyecto
 
-- Los datos salen de route handlers propios con queries parametrizadas a
-  BigQuery — nunca fetch directo a BQ ni a APIs de medios/Pitágoras desde
-  el cliente.
+- Este es un monorepo: `apps/web` (Next.js, este código) + `apps/api` (Go,
+  fork de `epa-standards-backend`). Un solo servicio de Cloud Run con dos
+  contenedores — ver `epa-backend`.
+- `apps/web` **no tiene cliente de BigQuery.** Los datos salen de route
+  handlers que hacen `fetch` a `EPA_API_BASE_URL` (el sidecar `api` en
+  `localhost:8081`) con queries parametrizadas del lado Go, y se validan con
+  Zod al llegar — nunca fetch directo a BQ ni a APIs de medios/Pitágoras
+  desde el cliente, ni desde `apps/web` tampoco.
 - Los charts van con Recharts + las convenciones de `epa-frontend`
   (título/subtítulo, colores por canal desde tokens, máx. 6 series) — nunca
   CSS custom para chartear.
@@ -147,8 +167,8 @@ y del plugin `epa-dashboards`.
   mano.
 - Sin login propio — el acceso se restringe en capa de plataforma (ver
   `references/auth.md`). No improvisar Firebase/NextAuth/tabla de usuarios.
-- Si el proyecto parece necesitar un ETL o un job aparte, escalar a
-  datos@epa.digital — no construirlo aquí.
+- Si el proyecto parece necesitar un ETL, un job programado o un segundo
+  servicio de Cloud Run, escalar a datos@epa.digital — no construirlo aquí.
 
 ## Comandos
 
@@ -167,12 +187,11 @@ por lookup, ver `epa-bq`). Contexto real del cliente:
 
 ## Referencias
 
-Todo vive en el plugin `epa-dashboards` — 5 skills (`epa-frontend`,
-`epa-bq`, `epa-design`, `epa-deploy`, `epa-safe-vibe`), 3 comandos
-(`/plan-dashboard`, `/client-context`, `/critique-epa`, `/migrate-to-epa`)
-y el agente
-`security-reviewer`. Se activan solos según el contexto — no hace falta
-invocarlos por nombre salvo los comandos.
+Todo vive en el plugin `epa-dashboards` — 6 skills (`epa-frontend`,
+`epa-backend`, `epa-bq`, `epa-design`, `epa-deploy`, `epa-safe-vibe`), 4
+comandos (`/plan-dashboard`, `/client-context`, `/critique-epa`,
+`/migrate-to-epa`) y el agente `security-reviewer`. Se activan solos según
+el contexto — no hace falta invocarlos por nombre salvo los comandos.
 ```
 
 ---
