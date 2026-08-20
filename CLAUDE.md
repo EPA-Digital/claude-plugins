@@ -57,10 +57,24 @@ ga360-250517         ← BigQuery exclusivo de Coppel (dataset Epa_dataset)
 ```
 bdd-epa-digital.{cliente}_reporting   ← fuente de verdad. Granular por
                                          cliente y plataforma de medios.
-epa-turing.{cliente}_etl.{tabla}      ← tablas del ETL centralizado (en
-                                         construcción por Datos e IA).
+bdd-epa-digital.{cliente}_etl.{tabla} ← tablas del ETL centralizado
+                                         (pitagoras-etl, en construcción por
+                                         Datos e IA). NO es epa-turing —
+                                         mismo proyecto que el reporting.
 ga360-250517.Epa_dataset              ← excepción Coppel (Domo).
 ```
+
+**`{cliente}_etl` vive en `bdd-epa-digital`, no en `epa-turing`.** Es una
+corrección de hecho sobre la spec original del ETL, que asumía `epa-turing`
+por error. La location del dataset **sigue al cliente** (D2 de
+`pitagoras-etl`): `chedraui_etl` nace en `us-central1` porque ahí vive
+`chedraui_reporting` — BigQuery no cruza locations en un `JOIN` — mientras
+que el ledger operativo (`pitagoras_etl_ops`) vive en `US`, porque es del
+servicio, no de un cliente. **Estado real hoy: fases 4-6 del ETL sin
+empezar** — solo existen datasets `{cliente}_etl_dev`, no hay endpoint para
+crear configs, y ningún dashboard puede leer `_etl` en producción todavía.
+Detalle completo, incluido cuándo y cómo leerlo una vez que exista:
+`skills/epa-bq/references/etl-tables.md` y `etl-config.md`.
 
 **DEPRECADO:** `bdd-epa-digital.epa_agency_reports`. No existe reemplazo
 cross-cliente — un rollup entre varios clientes se escala a Datos e IA.
@@ -86,9 +100,35 @@ Detalles completos: skills `epa-frontend` y `epa-backend` del plugin.
 ## Pitágoras — contexto mínimo
 
 Pitágoras es la capa de integración de medios de la agencia. **Un
-dashboard nunca la llama** — su único consumidor es el ETL centralizado.
-El MCP de Pitágoras (Tokyo) está deprecado. Si un dato de medios no está
-en `{cliente}_reporting`, se escala a `datos@epa.digital`.
+dashboard nunca la llama** — su único consumidor es el ETL centralizado
+(`pitagoras-etl`). El MCP de Pitágoras (Tokyo) está deprecado. Si un dato de
+medios no está en `{cliente}_reporting`, se escala a `datos@epa.digital`.
+
+No es solo una convención — está reforzado por lo que el propio ETL midió
+contra la API real: la autenticación de Pitágoras es un **JWT de sesión de
+una persona** (no una API key), con cuota de **100 llamadas/día por
+usuario**, y toda programación de un job **muere a los 7 días exactos**. Un
+dashboard no tiene ninguna de esas tres cosas resueltas — ni credencial de
+servicio, ni renovación, ni identidad — así que llamarla directo no es solo
+una violación de la regla, es algo que no puede funcionar de forma
+sostenida.
+
+---
+
+## Repos hermanos
+
+Dos repos fuera de `claude-plugins` que una sesión de dashboard puede
+necesitar leer o consumir:
+
+```
+epa-datos/epa-ui    ← Librería de componentes de producto (owner: iescutia).
+                       Se copia a commit fijado, no se instala como paquete
+                       — ver epa-design/references/epa-ui.md.
+epa-datos/epa-etl   ← pitagoras-etl, el ETL centralizado (owner: AxelRuiz123).
+                       Su AGENTS.md está escrito para quien autora un config
+                       desde el repo de un dashboard — ver
+                       epa-bq/references/etl-config.md.
+```
 
 ---
 

@@ -17,6 +17,15 @@ aplica):
    ej. `"US"`) o si el default basta.
 3. Que `bigquery.QueryParameter` acepta un `int64` para `LIMIT` tal cual
    (algunas versiones de la librería prefieren `int`).
+4. Si un repositorio nuevo lee `{cliente}_etl` (`pitagoras-etl`, ver
+   `epa-bq/references/etl-tables.md`) en vez de `{cliente}_reporting`, el
+   destino de scan para columnas de dinero **no es `float64`** — esas
+   tablas usan `NUMERIC(35,6)`, y el driver de Go necesita un tipo que
+   preserve esa escala exacta (`bigquery.NullFloat64` pierde precisión;
+   verificar si el driver expone `*big.Rat` o equivalente). Y toda query
+   contra `_etl` necesita filtro de fecha en el `WHERE` — esas tablas se
+   crean con `require_partition_filter = TRUE`, así que sin filtro la
+   query **falla**, no escanea de más.
 
 Ejemplo con el recurso `CampaignMetrics`, sobre las vistas del transfer de
 Google Ads (`ads_CampaignBasicStats_{mcc}` + `ads_Campaign_{mcc}` — ver

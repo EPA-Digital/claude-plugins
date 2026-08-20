@@ -17,15 +17,26 @@ bdd-epa-digital.{cliente}_reporting   ← EMPEZAR AQUÍ. Datos de medios y
                                          por plataforma y cuenta. Fuente
                                          principal de módulos de dashboard.
 
-epa-turing.{cliente}_etl.{tabla}      ← tablas que produzca el ETL
-                                         centralizado (en construcción).
-                                         Úsalo cuando el dato que necesitas
-                                         no está en {cliente}_reporting.
+bdd-epa-digital.{cliente}_etl.{tabla} ← tablas que produzca el ETL
+                                         centralizado (pitagoras-etl). NO es
+                                         epa-turing — mismo proyecto que el
+                                         reporting, dataset propio por
+                                         cliente. Úsalo cuando el dato que
+                                         necesitas no está en
+                                         {cliente}_reporting.
 
 ga360-250517.Epa_dataset              ← excepción Coppel (Domo). Solo si es
                                          estrictamente necesario — ver
                                          epa-safe-vibe.
 ```
+
+> ⚠️ **`{cliente}_etl` está en construcción — fases 4-6 del ETL sin
+> empezar.** Hoy solo existen datasets `{cliente}_etl_dev`, no hay endpoint
+> para crear un config, y ningún dashboard puede leer esto en producción
+> todavía. No construyas un dashboard sobre `_etl` sin confirmar el estado
+> real con `datos@epa.digital` primero. Cómo se **lee** una vez que exista:
+> `references/etl-tables.md`. Qué hacer cuando el dato que falta no está en
+> ningún dataset (autorar un config nuevo): `references/etl-config.md`.
 
 **DEPRECADO:** `bdd-epa-digital.epa_agency_reports`. Ya no se usa ni se
 duplica — no es la fuente de nada.
@@ -92,6 +103,11 @@ pipelines que se caen (Bing es el más propenso en la práctica). El
 dashboard debe mostrar **"Datos al {fecha}"** usando la fecha real de
 `data_freshness`, no la fecha de hoy. Receta lista en
 `references/query-recipes.md` (receta 10).
+
+Para tablas de `{cliente}_etl`, la fuente de frescura es distinta:
+`pitagoras_etl_ops.partitions` (no `data_freshness`, y no las columnas `_*`
+de la tabla) — ver `references/etl-tables.md`. `row_count = 0` ahí es
+**válido y final**, no una señal de pipeline caído.
 
 ---
 

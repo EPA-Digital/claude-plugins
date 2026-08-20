@@ -22,8 +22,18 @@ FROM `bdd-epa-digital`.INFORMATION_SCHEMA.SCHEMATA
 WHERE LOWER(schema_name) LIKE '%$1%';
 ```
 
-- Si hay exactamente un candidato, úsalo como `{dataset}` para el resto del
-  comando.
+Este mismo `LIKE` trae también, si existen, `{cliente}_etl` y
+`{cliente}_etl_dev` — las tablas del ETL centralizado (`pitagoras-etl`, ver
+`epa-bq/references/etl-tables.md`). **No los confundas con el dataset de
+reporting**: son dos cosas distintas, con reglas de lectura distintas
+(frescura por `pitagoras_etl_ops.partitions`, no `data_freshness`; dinero ya
+sin dividir; `require_partition_filter`). Repórtalos por separado en el
+documento final, y si solo existe `_etl_dev`, anótalo explícitamente como
+"no productivo — no construir sobre esto sin confirmar con
+`datos@epa.digital`".
+
+- Si hay exactamente un candidato de reporting, úsalo como `{dataset}` para
+  el resto del comando.
 - Si hay más de uno, muéstralos y pregunta al usuario cuál es el correcto.
 - Si no hay ninguno, detente y dile al usuario que no encontraste un
   dataset para ese cliente en `bdd-epa-digital` — puede ser un cliente
@@ -110,6 +120,11 @@ típica. Regla de deduplicación p_* en una línea.)
 
 ## 6. Otras plataformas
 (Bing, DV360 — o lo que aplique)
+
+## 7. ETL centralizado (`{cliente}_etl`)
+(Si existe `{cliente}_etl` o `{cliente}_etl_dev`: qué tablas tiene y su
+estado — productivo o solo `_dev`. Si no existe ninguno, dilo explícito en
+una línea; no omitas la sección en silencio.)
 
 ## Recomendaciones de uso (para queries)
 (lista numerada: ignorar p_*, filtros de fecha correctos, casts necesarios,
