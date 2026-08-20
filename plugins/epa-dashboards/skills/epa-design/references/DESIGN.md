@@ -1,4 +1,11 @@
 ---
+# ⚠️ SCOPE NOTE (2026-08): this file is the brand-authoritative spec — colors,
+# type scale, spacing as originally defined. Where it describes a PRODUCT
+# surface (color primary, component radius/shadow scale) and contradicts the
+# real epa-ui codebase (epa-datos/epa-ui, see
+# ../epa-ui.md), epa-ui wins — that decision is recorded in SKILL.md. This
+# file keeps full authority over brand/deck surfaces, which epa-ui doesn't
+# touch at all.
 version: alpha
 name: EPA Digital Design System (product-only)
 description: >

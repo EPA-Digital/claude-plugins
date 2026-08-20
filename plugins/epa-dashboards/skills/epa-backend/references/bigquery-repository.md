@@ -135,8 +135,10 @@ var (
 const maxRangeDays = 400
 
 // validPlatforms mirrors the channel keys documented in epa-frontend
-// regla 4. Keep the two lists in sync by hand — there's no shared source
-// yet (that's part of what @epa/tokens would give us, see stack.md).
+// regla 4. Keep the two lists in sync by hand — epa-ui's --chart-N tokens
+// solved the color side of this (see epa-design/references/epa-ui.md), but
+// the channel KEYS themselves still have no single machine-readable source
+// shared between Go and TypeScript.
 var validPlatforms = map[string]bool{
 	"google-ads": true, "meta": true, "tiktok": true, "dv360": true,
 	"bing": true, "organic": true, "direct": true, "email": true,

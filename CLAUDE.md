@@ -85,15 +85,21 @@ cross-cliente — un rollup entre varios clientes se escala a Datos e IA.
 
 ```
 Frontend:        Next.js 15 App Router + Tailwind CSS + pnpm, en Cloud Run
+Componentes:     epa-ui (epa-datos/epa-ui), copiado a commit fijado —
+                 Base UI, no Radix; primary real es el de epa-ui, no
+                 #003AD6, en superficie de producto
 Backend:         Go + gin, forkeado por dashboard de epa-standards-backend,
                  desplegado como sidecar del mismo servicio (nunca un
                  servicio propio) — el único que consulta BigQuery
 Datos:            BigQuery (bdd-epa-digital.{cliente}_reporting)
 CI/CD:           GitHub Actions → Artifact Registry → Cloud Run
-Branding:        EPA Blue #003AD6, IBM Plex Sans/Mono
+Branding:        IBM Plex Sans/Mono en producto. #003AD6 es el azul de
+                 marca de la agencia (decks, sitio) — no el primary de
+                 dashboards, ver epa-design/SKILL.md
 ```
 
-Detalles completos: skills `epa-frontend` y `epa-backend` del plugin.
+Detalles completos: skills `epa-frontend`, `epa-backend` y `epa-design`
+del plugin.
 
 ---
 
@@ -199,8 +205,9 @@ O dejar que `extraKnownMarketplaces`/`enabledPlugins` en
    — el servicio termina en `-vibe`, siempre, incluida producción. Nunca
    un segundo servicio para el backend. Nunca desplegar en
    `bdd-epa-digital` ni `ga360-250517`.
-6. **UI = design system EPA.** IBM Plex, `#003AD6`, sin CSS custom, sin
-   componentes hechos a mano.
+6. **UI = design system EPA sobre `epa-ui`.** IBM Plex, el primary de
+   `epa-ui` (no `#003AD6` — ese es el azul de marca de la agencia, ver
+   `epa-design/SKILL.md`), sin CSS custom, sin componentes hechos a mano.
 7. **El frontend nunca declara un cliente de BigQuery.** Es el único
    control que compensa que los dos contenedores comparten service
    account — ver `epa-backend`.

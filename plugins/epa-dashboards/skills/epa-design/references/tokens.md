@@ -3,6 +3,38 @@
 Todos los valores del `DESIGN.md` organizados para copy-paste directo en
 código. Versión product-only — sin tokens de deck/brand.
 
+> **Los tokens de runtime reales son los de `epa-ui`** (OKLCH, `app/globals.css`,
+> ver `references/epa-ui.md`) — no los bloques de esta página. Lo que sigue
+> se conserva como **referencia de marca** (los hex `--epa-*` de abajo) y
+> como forma histórica (el bloque `tailwind.config.js`, que es sintaxis de
+> Tailwind v3 — el stack real usa v4 y no tiene archivo de config). Si un
+> valor de aquí contradice a `epa-ui`, gana `epa-ui` en superficie de
+> producto.
+
+## Tokens de runtime — OKLCH, el contrato real
+
+```css
+/* app/globals.css de epa-ui — copiar tal cual, no reescribir a hex */
+:root {
+  --primary: oklch(0.546 0.245 262.881);   /* = Tailwind blue-600 */
+  --destructive: oklch(0.577 0.245 27.325);
+  --chart-1: oklch(0.546 0.245 262.881);
+  --chart-2: oklch(0.5 0.205 142.495);
+  --chart-3: oklch(0.6 0.191 49.763);
+  --chart-4: oklch(0.55 0.247 348.498);
+  --chart-5: oklch(0.55 0.261 286.711);
+  --chart-6: oklch(0.63 0.19 96);
+  --chart-7: oklch(0.55 0.16 172);
+  --chart-8: oklch(0.6 0.14 202);
+  --chart-9: oklch(0.5 0.22 232);
+  --chart-10: oklch(0.55 0.24 318);
+  --radius: 0.625rem; /* 10px — sm/md/lg/xl/2xl/3xl/4xl se derivan de este */
+}
+```
+
+No hay `success`/`warning`/`info` en este contrato — ver el estado
+semántico provisional en `references/epa-ui.md`.
+
 ## CSS Custom Properties — completas
 
 ```css
@@ -97,10 +129,16 @@ código. Versión product-only — sin tokens de deck/brand.
 }
 ```
 
-## Tailwind — config equivalente
+## Tailwind — config equivalente (forma histórica, Tailwind v3)
+
+> ⚠️ El stack real es Tailwind v4 (`epa-ui`), que **no tiene**
+> `tailwind.config.js` — los tokens se declaran con `@theme inline` en CSS
+> (ver el bloque OKLCH de arriba). Este bloque se conserva como forma
+> equivalente de v3 para quien necesite el mapeo conceptual, no como
+> archivo a crear en un dashboard real.
 
 ```js
-// tailwind.config.js
+// tailwind.config.js — NO crear este archivo en un stack real (Tailwind v4)
 module.exports = {
   theme: {
     extend: {
