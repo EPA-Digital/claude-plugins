@@ -22,6 +22,14 @@ Modo: **BLOQUEANTE** para malas prácticas · **CONSULTIVO** para arquitectura
 > aplica igual en `epa-turing`, `bdd-epa-digital` (datos canónicos + intranet Newton)
 > y `ga360-250517` (Coppel). El incidente Newton (ver B7) ocurrió justo porque un
 > deploy fue a `bdd-epa-digital` y la regla "se sintió" fuera de alcance.
+>
+> **Esta regla gobierna dashboards.** `pitagoras-etl` (el ETL centralizado,
+> repo `epa-datos/epa-etl`) **sí** despliega Cloud Run en `bdd-epa-digital`
+> — es su proyecto por diseño, y es propiedad del área de Datos e IA, no de
+> este plugin. Eso no es una excepción que una sesión de dashboard pueda
+> citar para justificar un deploy propio ahí: el incidente Newton pasó
+> precisamente en ese proyecto, y la regla existe para dashboards, no para
+> el ETL que ese mismo equipo opera.
 
 Este skill protege la infraestructura compartida de EPA y previene los errores
 más costosos del vibecoding de dashboards sin contexto institucional.

@@ -194,6 +194,19 @@ claude-plugins/
 
 ---
 
+## Repos hermanos
+
+Este repo es el plugin. Dos repos aparte, de la organización `epa-datos`,
+son lo que ese plugin lee y consume — no necesitas instalar nada de ahí,
+Claude los lee cuando hacen falta.
+
+| Repo | Qué es | Owner |
+|---|---|---|
+| `epa-datos/epa-ui` | Librería de componentes de producto — de ahí sale la UI real de un dashboard | iescutia |
+| `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — llena las tablas `{cliente}_etl` cuando un dato no está en el reporting normal | AxelRuiz123 |
+
+---
+
 ## Otras formas de instalar
 
 Si por alguna razón no puedes usar los comandos de arriba:

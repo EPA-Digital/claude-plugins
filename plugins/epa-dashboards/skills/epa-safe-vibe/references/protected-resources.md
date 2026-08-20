@@ -32,6 +32,29 @@ Un dashboard no debería tocar ninguna de estas — no son parte de su modelo
 de datos (ver `epa-bq`). Si tu dashboard necesita leer o escribir en alguna,
 detente y confirma con Datos e IA antes de continuar.
 
+**Colecciones de `pitagoras-etl`** (mismo proyecto `bdd-epa-digital`, bases
+`(default)` y `dev`): `configs`, `table_claims`, `partitions`, `runs`,
+`chunks`, `breakers`, `quota`, `metadata_cache`. Son el estado operativo del
+ETL centralizado — un dashboard nunca las escribe, y leerlas directo tampoco
+es el camino (ver `epa-bq/references/etl-tables.md` para cómo consultar
+frescura vía BigQuery en vez de Firestore). Nunca instanciar `LiveClient` ni
+poner `PITAGORAS_MODE=live` desde una sesión de dashboard — es exclusivo de
+`scripts/` de `epa-etl` con confirmación humana.
+
+---
+
+## BigQuery — datasets `{cliente}_etl`, read-only para un dashboard
+
+Los datasets `{cliente}_etl` en `bdd-epa-digital` los escribe **solo**
+`pitagoras-etl`, con `WRITE_TRUNCATE` por partición y `jobId` determinista.
+Un dashboard los **lee**, nunca los escribe:
+
+**Nunca desde un dashboard:** `INSERT`, `UPDATE`, `DELETE`, `MERGE`, ni
+`CREATE`/`ALTER TABLE` sobre cualquier tabla `{cliente}_etl.*`. Un `MERGE`
+en particular es el error específico que el ETL prohíbe para sí mismo
+(no refleja restatement de atribución) — mucho menos es aceptable que lo
+haga un dashboard que no es el dueño de la tabla.
+
 ---
 
 ## Secret Manager — Secrets protegidos
