@@ -1,5 +1,15 @@
 # EPA Components — Patrones de Referencia
 
+> ⚠️ **SUPERSEDED (2026-08) — usar `references/epa-ui.md`.** Este archivo
+> es HTML/CSS a mano con `#003AD6` incrustado, escrito antes de que
+> `epa-ui` (la librería de componentes real, `epa-datos/epa-ui`) se
+> integrara al plugin. Hoy contradice dos cosas a la vez: el primary de
+> producto ya no es `#003AD6` (ver `epa-design/SKILL.md`), y "componentes
+> hechos a mano" es justo lo que el anti-stack del plugin prohíbe. Se
+> conserva sin borrar por el mismo motivo que `stack.md` conserva `@epa/data`
+> — para no perder el porqué de cada patrón y no re-litigarlo — pero no es
+> lo que hay que copiar en un dashboard nuevo.
+
 Todos los componentes del design system con HTML/CSS listo para usar.
 Todos son superficie `product` salvo que se indique lo contrario.
 

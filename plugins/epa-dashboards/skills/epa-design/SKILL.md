@@ -24,13 +24,27 @@ description: >
 ## Identidad en 30 segundos
 
 ```
-Color anchor:     EPA Blue  #003AD6
+Color anchor:     Primary de epa-ui (oklch 0.546 0.245 262.881 = Tailwind
+                   blue-600) en superficie de producto — ver nota abajo.
+                   #003AD6 sigue siendo el azul de marca de la agencia.
 Tipografía:       IBM Plex Sans (UI) · IBM Plex Mono (números, code)
 Voz UX:           Español LATAM, segunda persona informal (tú), sentence case
-Border radius:    md=6px (default) · lg=8px (panels) · full (pills, dot)
+Border radius:    escala de epa-ui, hasta 4xl (~26px) — ver tokens.md
 Densidad UI:      13px body, 22px h1, hairlines 0.5px, espaciado 8/16/24/40
 Animación:        150ms hover, 300ms paneles, 800ms entradas
 ```
+
+> **Cambio de autoridad de color (jcorona, 2026-08-20).** El azul de
+> superficies de producto ya no es `#003AD6` — es el `--primary` real de
+> `epa-ui`, la librería de componentes que se adoptó completa (ver
+> `references/epa-ui.md`). Decisión explícita: "epa-ui gana tal cual", para
+> no mantener un overlay de color sobre una librería que ningún componente
+> hardcodea. **La frontera se mantiene:** esto es solo la superficie de
+> producto que este skill ya declaraba cubrir — `#003AD6` sigue siendo el
+> azul de marca de la agencia (decks, sitio, presentaciones), que mantiene
+> el área de Diseño fuera de este plugin. Consecuencia aceptada: un
+> dashboard ya no es pixel-consistente con esas superficies en el azul
+> primario.
 
 ---
 
@@ -41,26 +55,31 @@ correspondiente — ahí están los valores exactos copy-paste:
 
 | Necesidad | Reference |
 |---|---|
-| Tokens (CSS vars, Tailwind config, TS export) | `references/tokens.md` |
-| Componentes (HTML/CSS, React/Tailwind copy-paste) | `references/components.md` |
+| Tokens (CSS vars OKLCH, escalas reales) | `references/tokens.md` |
+| Componentes de producto (qué usar, cómo se consume, estado semántico) | `references/epa-ui.md` |
 | Copy de UI (microcopy, errores, vacíos, cifras) | `references/copy.md` |
-| Spec completa del design system (YAML autoritativo) | `references/DESIGN.md` |
+| Spec completa del design system (YAML autoritativo, marca) | `references/DESIGN.md` |
+| `references/components.md` (HTML/CSS a mano) | **SUPERSEDED** por `epa-ui.md` — ver nota ahí |
 
-`references/DESIGN.md` es la fuente de verdad. Si hay conflicto entre archivos,
-gana DESIGN.md.
+`references/DESIGN.md` es la fuente de verdad de **marca**. En superficie de
+producto (color, componentes, radius, sombras), donde `DESIGN.md` contradiga
+al código real de `epa-ui`, gana `epa-ui` — ver `references/epa-ui.md`.
 
 ---
 
 ## Reglas no-negociables
 
 ### Color
-- **Solo `#003AD6`** como azul EPA. Nada de `#0040FF`, `#0033CC`,
-  `#003ACC` ni variantes "parecidas". Si el código tiene un azul que no está
-  en `tokens.md`, está mal.
+- **El primary de producto es el de `epa-ui`** (`oklch(0.546 0.245
+  262.881)`, ver nota de arriba) — no `#003AD6`. No introducir un azul
+  distinto al de `app/globals.css` de `epa-ui` en ningún dashboard.
 - **Magenta `#DB0043` y cyan `#00E8FF` están prohibidos** en cualquier UI de
   dashboard.
-- Los semánticos (success/warning/danger/info) son fijos. No reemplazar con
-  paletas tipo "tailwind default green-500".
+- Los semánticos (success/warning/danger/info) **no existen todavía como
+  variante de componente** en `epa-ui` — usar la regla provisional de
+  `references/epa-ui.md` (deltas por `secondary`/`destructive` + ícono de
+  dirección; status pills por mapa explícito). No inventar una variante
+  paralela ni reemplazar con paletas tipo "tailwind default green-500".
 
 ### Tipografía
 - **IBM Plex Sans** en todo. NO Inter, NO Roboto, NO system-ui sin Plex.
@@ -70,9 +89,11 @@ gana DESIGN.md.
 
 ### Layout
 - Hairlines: `border: 0.5px solid var(--border)`. NO `1px` por default.
-- Border radius: `6px` (md) en buttons/inputs/pills. `8px` (lg) en panels.
-  `9999px` (full) en pills y avatares.
-- Sombras: `sm`/`md`/`lg` definidas en tokens. NO sombras Tailwind default.
+- Border radius: escala de `epa-ui` (`sm`…`4xl`, hasta ~26px) — no la escala
+  vieja de 6/8/9999px. Ver `references/epa-ui.md` y `tokens.md`.
+- Sombras: **las de Tailwind** (`shadow-sm/md/lg/xl`) por elevación — ver
+  `references/epa-ui.md`. La regla vieja de "sombras custom, no Tailwind
+  default" era incorrecta contra el código real.
 
 ### Copy
 - Español LATAM, segunda persona informal: "tu reporte", no "su reporte".
@@ -87,12 +108,15 @@ gana DESIGN.md.
 
 ## Flujo recomendado para una nueva UI
 
-1. **Cargar tokens:** copiar el bloque CSS vars o Tailwind config de
-   `tokens.md` al proyecto.
+1. **Copiar `epa-ui`** a commit fijado (ver `references/epa-ui.md`) — de
+   ahí salen los tokens OKLCH y las fuentes ya configuradas, no de un
+   bloque suelto.
 2. **Cargar fuente:** asegurarse de que IBM Plex Sans + Plex Mono estén
-   disponibles (Google Fonts, self-hosted, o `@fontsource/ibm-plex-sans`).
-3. **Construir con componentes existentes** de `components.md`. NO inventar
-   buttons/cards/pills nuevos antes de revisar este archivo.
+   disponibles — `epa-ui` ya las trae vía `next/font/google` en
+   `app/layout.tsx`, normalmente no hay nada que agregar.
+3. **Construir con componentes de `epa-ui`** (`references/epa-ui.md`). NO
+   inventar buttons/cards/pills nuevos — si el componente que necesitas no
+   existe ahí, avisa al usuario para pedirlo, no lo improvises.
 4. **Escribir copy con `copy.md`** abierto al lado.
 5. **Verificar** contra el checklist al final de este SKILL antes de cerrar el
    ticket.
@@ -104,13 +128,16 @@ gana DESIGN.md.
 ### KPI cards
 - Border radius: `xl` (10px).
 - Número grande en IBM Plex Mono, 36–48px.
-- Delta abajo con `▲` o `▼` y color semántico.
+- Delta abajo con `Badge` de `epa-ui` (`secondary` mejora / `destructive`
+  empeora) + ícono de dirección — **no** "color semántico" genérico, `epa-ui`
+  no tiene esa variante. Ver `references/epa-ui.md`.
 - Label superior en `ui-caps` (10px, letter-spacing 0.6px, uppercase).
 
 ### Status pills
-- `rounded: full`, padding `4px 10px`, `ui-body-strong` (13px/500).
-- Combos cerrados: `success` / `warning` / `danger` / `info`.
-- NO inventar variantes.
+- `Badge` de `epa-ui` con un `Record<Status, BadgeVariant>` explícito por
+  dashboard, sobre `default | secondary | destructive | outline | ghost |
+  link` — ver `references/epa-ui.md`.
+- NO inventar una variante `success`/`warning`/`info` que no existe.
 
 ### Tablas de datos densas
 - Row height: 32–36px.
@@ -138,8 +165,6 @@ Easing por default: `cubic-bezier(0.4, 0, 0.2, 1)` (Material standard).
 ```
 ✗ Mezclar Inter o Roboto con Plex
 ✗ Usar magenta #DB0043 o cyan #00E8FF en cualquier UI
-✗ Border radius >12px (se lee "consumer", no "enterprise")
-✗ Sombras tipo Tailwind default (shadow-md, shadow-xl) — usar las de tokens
 ✗ Botones con esquinas pill (solo en pills/badges)
 ✗ ALL CAPS fuera de eyebrows y caps tokens
 ✗ Colores hex inline en JSX/HTML — siempre usar var() o token
@@ -148,6 +173,10 @@ Easing por default: `cubic-bezier(0.4, 0, 0.2, 1)` (Material standard).
   espaciado, no sobre font-size)
 ✗ Copy en inglés en interfaces de cliente español sin razón explícita
 ✗ Animaciones >800ms en interacciones de UI
+✗ Reusar --chart-N como color de estado (success/warning/error) — son
+  tokens de serie de datos, no semánticos (ver references/epa-ui.md)
+✗ Inventar una variante "success"/"warning"/"info" en Badge/Alert que no
+  existe en epa-ui — usar la regla provisional de delta/status pills
 ```
 
 ---
@@ -156,13 +185,16 @@ Easing por default: `cubic-bezier(0.4, 0, 0.2, 1)` (Material standard).
 
 ```
 TOKENS
-[ ] Solo colores de tokens.md (sin hex inline)
+[ ] Solo colores de epa-ui / tokens.md (sin hex inline)
 [ ] IBM Plex Sans cargado, body 13px
-[ ] Border radius dentro de la escala (4/6/8/10/12/full)
+[ ] Border radius dentro de la escala de epa-ui (sm...4xl)
 [ ] Espaciado dentro de la escala (4/8/16/24/40/72)
 
 COMPONENTES
-[ ] Botones, pills y cards copiados de components.md (no reinventados)
+[ ] Botones, pills y cards copiados de epa-ui a commit fijado (no
+    reinventados) — ver references/epa-ui.md
+[ ] Delta de KPI y status pills siguen la regla provisional de estado
+    semántico (secondary/destructive + ícono; Record<Status, BadgeVariant>)
 [ ] Tablas con hairlines 0.5px y números en Plex Mono
 [ ] Estados hover/focus/disabled definidos
 
@@ -183,7 +215,9 @@ ACCESIBILIDAD
 ## Cuándo escalar al área de Diseño
 
 - Cliente nuevo sin paleta secundaria definida.
-- Componente que no existe en `components.md`.
+- Componente que no existe en `epa-ui` — es un pedido para `@iescutia`
+  (ver `references/epa-ui.md`), no algo que se improvise localmente.
 - Discrepancia entre lo que pide el cliente y los tokens (no improvisar — escalar).
-- Cualquier propuesta de cambiar el azul EPA o la tipografía base.
-- Cualquier necesidad de presentación/deck — fuera de alcance de este plugin.
+- Cualquier propuesta de cambiar el primary de producto o la tipografía base.
+- Cualquier necesidad de presentación/deck — fuera de alcance de este plugin
+  (ahí sí sigue vigente `#003AD6` como azul de marca).

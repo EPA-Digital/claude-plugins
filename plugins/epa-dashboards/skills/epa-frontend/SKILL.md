@@ -54,49 +54,44 @@ reinventarla por proyecto.
 
 ---
 
-## Regla 3 — Componentes: siempre del registry, nunca hechos a mano
+## Regla 3 — Componentes: siempre de `epa-ui`, nunca hechos a mano
 
-Las primitivas de UI vienen del registry EPA de shadcn:
-
-```
-pnpm dlx shadcn add @epa/{componente}
-```
+Las primitivas de UI vienen de `epa-datos/epa-ui` (owner `iescutia`), sobre
+**Base UI**, no Radix. No hay registry de shadcn hoy — se **copian
+archivos** a un commit fijado, no se instalan con `pnpm dlx shadcn add`.
+Detalle completo, mapa intención→componente, y la regla de estado semántico
+provisional (`success`/`warning`/`info` no existen todavía):
+`epa-design/references/epa-ui.md`.
 
 **NUNCA** crear un botón, card, dialog o cualquier primitiva desde cero, ni
 copiarla de internet o de otro proyecto. Si el componente que necesitas no
-existe en el registry, avísale al usuario para que lo solicite al owner del
-kit — no lo improvises.
-
-> ⚠️ **TODO pendiente:** la URL real del registry (`<REGISTRY_URL>`) está
-> pendiente de confirmarse en la sesión con Dany. Hasta entonces, este skill
-> no puede resolver `pnpm dlx shadcn add` contra un registry real — avisar
-> al usuario de este bloqueo si insiste en instalar un componente.
+existe en `epa-ui`, avísale al usuario para que lo solicite a `@iescutia` —
+no lo improvises.
 
 ---
 
 ## Regla 4 — Charts
 
-Los charts se construyen con **Recharts** siguiendo las convenciones de
-shadcn/ui charts. Reglas obligatorias, sin excepción:
+Los charts se construyen con **`ChartContainer` + `ChartConfig`** de
+`epa-ui` (`components/ui/chart.tsx`) — las primitivas de Recharts sí se
+importan directo, pero solo dentro de ese contrato, nunca un SVG a mano.
+Reglas obligatorias, sin excepción:
 
 1. **Título + subtítulo siempre.** Un chart sin título no comunica nada.
 2. **Comparación de periodo** como línea punteada gris cuando aplique
    (periodo anterior, YoY, edición anterior).
-3. **Colores por canal desde tokens de epa-design — nunca hex inline.**
+3. **Colores por canal desde `--chart-1`…`--chart-10` de `epa-ui` — nunca
+   hex inline, nunca un nombre de clase templado (`bg-chart-${n}`).**
 4. **Máximo 6 series.** Agrupar el resto en "Otros".
 5. **Números formateados** (`$42.33M`, `1.29%`, `10.10x`) con **IBM Plex
    Mono**.
 6. **Botón "Ver tabla"** en los charts de los módulos principales.
 
-> ⚠️ **El mapa canal→color no existe todavía como tokens hex.**
-> `epa-design` no tiene paleta categórica — solo reserva `Primary Mid
-> (#B8CAFE)` para series secundarias genéricas. Las **claves** de canal a
-> usar hoy (sin hex fijo, hasta que exista `@epa/tokens`) son:
-> `google-ads, meta, tiktok, dv360, bing, organic, direct, email, otros`.
-> Mientras el mapeo hex no exista: asignar un color de la paleta de
-> epa-design por clave y mantenerlo consistente dentro del mismo dashboard;
-> nunca hardcodear un hex distinto por chart. No inventar claves de canal
-> nuevas sin necesidad.
+**El mapa canal→color ya existe**: las claves de canal
+(`google-ads, meta, tiktok, dv360, bing, organic, direct, email, otros`)
+se asignan a `--chart-1..10` de `epa-ui`, consistentes dentro del mismo
+dashboard — ver `epa-design/references/epa-ui.md`. Ya no está bloqueado
+esperando `@epa/tokens`.
 
 ---
 
@@ -160,11 +155,12 @@ y del plugin `epa-dashboards`.
   `localhost:8081`) con queries parametrizadas del lado Go, y se validan con
   Zod al llegar — nunca fetch directo a BQ ni a APIs de medios/Pitágoras
   desde el cliente, ni desde `apps/web` tampoco.
-- Los charts van con Recharts + las convenciones de `epa-frontend`
-  (título/subtítulo, colores por canal desde tokens, máx. 6 series) — nunca
-  CSS custom para chartear.
-- Las primitivas de UI vienen del registry EPA de shadcn, nunca hechas a
-  mano.
+- Los charts van con `ChartContainer` (`epa-ui`) + las convenciones de
+  `epa-frontend` (título/subtítulo, colores por canal desde `--chart-N`,
+  máx. 6 series) — nunca CSS custom ni SVG a mano.
+- Las primitivas de UI vienen de `epa-ui`, copiadas al commit
+  `{SHA_DE_EPA_UI}` — nunca hechas a mano. Actualizar ese SHA es un cambio
+  deliberado, no un accidente de copiar de nuevo.
 - Sin login propio — el acceso se restringe en capa de plataforma (ver
   `references/auth.md`). No improvisar Firebase/NextAuth/tabla de usuarios.
 - Si el proyecto parece necesitar un ETL, un job programado o un segundo

@@ -23,9 +23,31 @@ corrige antes de seguir.
 
 ✗ Componentes de UI hechos a mano (botón, card, dialog, tabla... copiados de
   internet o creados desde cero)
-  → Duplican lo que ya existe en el registry EPA de shadcn y divergen del
-    design system con el tiempo. Si el componente no existe en el registry,
-    se avisa al usuario para que lo pida al owner del kit — no se improvisa.
+  → Duplican lo que ya existe en epa-ui y divergen del design system con el
+    tiempo. Si el componente no existe ahí, se avisa al usuario para que lo
+    pida a `@iescutia` — no se improvisa (ver epa-design/references/epa-ui.md).
+
+✗ SVG de chart hecho a mano, o un nombre de clase de chart templado
+  (`` `bg-chart-${n}` ``)
+  → Los charts van dentro de `ChartContainer`/`ChartConfig` de epa-ui; las
+    primitivas de Recharts se importan directo pero solo ahí adentro. El
+    scanner de Tailwind es estático — una clase templada no compila
+    (ver epa-design/references/epa-ui.md).
+
+✗ Un hex o valor OKLCH inline por componente para color de estado
+  (verde/ámbar "de éxito"/"de advertencia")
+  → epa-ui no tiene esas variantes todavía; la regla provisional (deltas
+    por secondary/destructive + ícono, status pills por mapa explícito) es
+    la única forma aceptada — ver epa-design/references/epa-ui.md.
+
+✗ Un segundo `<Toaster />` o un `TooltipProvider` adicional alrededor de un
+  `Tooltip` puntual
+  → Ya están montados una vez en `app/layout.tsx` (de epa-ui). Los toasts
+    son el singleton `toast.add(...)`.
+
+✗ `tailwind.config.js`
+  → El stack es Tailwind v4 (epa-ui) — no tiene archivo de config; los
+    tokens se declaran con `@theme inline` en CSS.
 
 ✗ Fetch directo a APIs de medios (Meta, Google Ads, TikTok, Bing, DV360...)
   → Redirige a epa-safe-vibe / Pitágoras. Los dashboards leen
@@ -64,14 +86,14 @@ corrige antes de seguir.
     create-epa-dashboard congela esto en un template sin prompts.
 ```
 
-## Futuro — al liberarse el kit `@epa/*` (no vigente hoy, ver `stack.md`)
+## Retirado — contradecía el código real de `epa-ui`
 
-```
-✗ import de Recharts o de primitivas Radix directo (sin pasar por @epa/*)
-  → Cuando exista el kit, @epa/charts y @epa/ui son el único wrapper
-    permitido — mantienen tokens, formato de cifras y accesibilidad
-    consistentes entre todos los dashboards.
-```
+> La entrada que decía "✗ import de Recharts o de primitivas Radix directo
+> — solo vía `@epa/charts`/`@epa/ui` cuando exista el kit" se retiró: era
+> doblemente incorrecta contra `epa-ui`, que ya existe. No usa Radix (usa
+> Base UI), y sí importa Recharts directo — pero solo dentro de
+> `ChartContainer` (ver la entrada correcta arriba, en "Vigentes hoy", y
+> `epa-design/references/epa-ui.md`).
 
 > El BFF del template (`@epa/data`) como "único backend del dashboard" fue
 > **SUPERSEDED** por la decisión de Go — ver `references/stack.md`. Los

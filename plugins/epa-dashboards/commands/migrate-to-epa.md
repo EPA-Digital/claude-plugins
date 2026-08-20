@@ -13,9 +13,14 @@ convenciones) y quiere dejarlo al estándar completo de EPA. Objetivo:
 Eddy (`epa-standards-backend`) y la arquitectura de sidecar (`epa-backend`)
 ya están disponibles: si el proyecto consulta BigQuery directo desde route
 handlers, este comando migra eso a `apps/api` en Go, con tu confirmación
-antes de crear nada (ver Paso 6). Lo único que sigue bloqueado es la
-librería de componentes de Dany (`<REGISTRY_URL>` pendiente, ver
-`epa-frontend` regla 3) — eso sí se reporta bloqueado, sin intentarlo.
+antes de crear nada (ver Paso 6).
+
+**La librería de componentes tampoco es un bloqueo — es el Paso 3.5.**
+`epa-ui` (`epa-datos/epa-ui`) ya existe: si el proyecto tiene componentes
+hechos a mano, este comando los reemplaza por los de `epa-ui` copiados a
+commit fijado, con tu confirmación (ver Paso 3.5 y
+`epa-design/references/epa-ui.md`). **No queda nada bloqueado por falta de
+kit.**
 
 ## Paso 1 — Auditar y corregir lo mecánico (autofix)
 
@@ -58,6 +63,23 @@ Victory, Nivo, D3 directo, etc.):
   punteada, colores por canal, máx. 6 series, formato de cifras, botón
   "Ver tabla").
 - Si ya usa Recharts pero sin las 6 reglas: lista cuáles faltan por chart.
+
+## Paso 3.5 — Componentes hechos a mano (con tu confirmación)
+
+Busca componentes caseros que dupliquen primitivas ya presentes en `epa-ui`
+(botón, card, dialog, tabla, badge, etc. — ver el mapa intención→componente
+de `epa-design/references/epa-ui.md`).
+
+1. **Inventariar**, sin tocar nada todavía: cada componente casero
+   encontrado, con archivo:línea, y a qué primitiva de `epa-ui` corresponde.
+2. **Proponer el plan al usuario y esperar confirmación explícita** antes
+   de crear o borrar nada — cuántos componentes, en qué orden se migran.
+3. Una vez confirmado: copiar de `epa-datos/epa-ui` (a un commit fijado,
+   registrado en `AGENTS.md`) solo lo que el inventario necesita, y
+   reemplazar los componentes caseros uno por uno.
+4. Si algún componente casero **no** tiene equivalente en `epa-ui`: repórtalo
+   como pedido pendiente para `@iescutia`, no lo migres a un sustituto
+   improvisado.
 
 ## Paso 4 — Acceso a datos
 
@@ -119,11 +141,6 @@ real, con este procedimiento:
 4. Correr `security-reviewer` de nuevo después de migrar — su sección 7
    está diseñada exactamente para esta frontera.
 
-**Componentes de UI hechos a mano** siguen bloqueados de verdad — repórtalo
-sin intentarlo: depende de la librería de Dany y del `<REGISTRY_URL>` del
-registry (ver `epa-frontend` regla 3). Lista los componentes caseros
-encontrados, no los reescribas todavía.
-
 ## Salida obligatoria
 
 Tabla consolidada:
@@ -132,13 +149,14 @@ Tabla consolidada:
 |---|---|---|---|---|
 | ... | ... | ... | migrado / requiere tu ok / bloqueado (pendiente de X) | ... |
 
-Cierra siempre con un resumen, separando lo que ya no depende de nadie de
-lo que sigue bloqueado por Dany:
+Cierra siempre con un resumen — ya no queda nada bloqueado por falta de
+kit, así que separa lo automático de lo que espera tu confirmación:
 
 > "N cambios aplicados automáticamente. M requieren tu confirmación antes
 > de aplicarse. [Si aplica: "La migración a apps/api (Go) está lista para
-> empezar en cuanto confirmes el inventario del Paso 6."] K componentes
-> caseros quedan bloqueados hasta que Dany comparta su librería."
+> empezar en cuanto confirmes el inventario del Paso 6."] [Si aplica: "K
+> componentes caseros están listos para migrar a epa-ui en cuanto
+> confirmes el inventario del Paso 3.5."]"
 
 Si algo requiere tu confirmación, pregúntalo explícitamente antes de
 tocar esos archivos — no asumas que "migrar" significa autorización para
