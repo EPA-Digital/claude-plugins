@@ -75,11 +75,10 @@ al código real de `epa-ui`, gana `epa-ui` — ver `references/epa-ui.md`.
   distinto al de `app/globals.css` de `epa-ui` en ningún dashboard.
 - **Magenta `#DB0043` y cyan `#00E8FF` están prohibidos** en cualquier UI de
   dashboard.
-- Los semánticos (success/warning/danger/info) **no existen todavía como
-  variante de componente** en `epa-ui` — usar la regla provisional de
-  `references/epa-ui.md` (deltas por `secondary`/`destructive` + ícono de
-  dirección; status pills por mapa explícito). No inventar una variante
-  paralela ni reemplazar con paletas tipo "tailwind default green-500".
+- Los semánticos (`success`/`warning`/`info`/`destructive`) **ya existen
+  como variante real** de `Badge`/`Alert` en `epa-ui` — ver
+  `references/epa-ui.md`. Usarlos directo, nunca reemplazar con paletas
+  tipo "tailwind default green-500" ni con un hex inline.
 
 ### Tipografía
 - **IBM Plex Sans** en todo. NO Inter, NO Roboto, NO system-ui sin Plex.
@@ -108,12 +107,13 @@ al código real de `epa-ui`, gana `epa-ui` — ver `references/epa-ui.md`.
 
 ## Flujo recomendado para una nueva UI
 
-1. **Copiar `epa-ui`** a commit fijado (ver `references/epa-ui.md`) — de
-   ahí salen los tokens OKLCH y las fuentes ya configuradas, no de un
-   bloque suelto.
-2. **Cargar fuente:** asegurarse de que IBM Plex Sans + Plex Mono estén
-   disponibles — `epa-ui` ya las trae vía `next/font/google` en
-   `app/layout.tsx`, normalmente no hay nada que agregar.
+1. **Instalar `@epa-datos/ui`** (ver `references/epa-ui.md`) — de ahí
+   salen los tokens OKLCH (vía `@epa-datos/ui/styles/tokens.css`) y las
+   fuentes ya configuradas, no de un bloque suelto.
+2. **Cargar fuente:** el paquete **no** trae las fuentes — el proyecto
+   declara `--font-sans`/`--font-mono` donde cargue IBM Plex Sans + Plex
+   Mono (p. ej. `next/font/google` en `app/layout.tsx`), como cualquier
+   otra fuente del proyecto.
 3. **Construir con componentes de `epa-ui`** (`references/epa-ui.md`). NO
    inventar buttons/cards/pills nuevos — si el componente que necesitas no
    existe ahí, avisa al usuario para pedirlo, no lo improvises.
@@ -128,16 +128,17 @@ al código real de `epa-ui`, gana `epa-ui` — ver `references/epa-ui.md`.
 ### KPI cards
 - Border radius: `xl` (10px).
 - Número grande en IBM Plex Mono, 36–48px.
-- Delta abajo con `Badge` de `epa-ui` (`secondary` mejora / `destructive`
-  empeora) + ícono de dirección — **no** "color semántico" genérico, `epa-ui`
-  no tiene esa variante. Ver `references/epa-ui.md`.
+- Delta abajo con `Badge` de `epa-ui`: **`variant="success"`** mejora /
+  **`variant="destructive"`** empeora + ícono de dirección. **Nunca
+  `secondary`** — es la variante que `epa-ui` marcó explícitamente como
+  incorrecta para esto (se lee neutral, no "bueno"). Ver
+  `references/epa-ui.md`.
 - Label superior en `ui-caps` (10px, letter-spacing 0.6px, uppercase).
 
 ### Status pills
 - `Badge` de `epa-ui` con un `Record<Status, BadgeVariant>` explícito por
-  dashboard, sobre `default | secondary | destructive | outline | ghost |
-  link` — ver `references/epa-ui.md`.
-- NO inventar una variante `success`/`warning`/`info` que no existe.
+  dashboard, sobre `default | secondary | destructive | success | warning |
+  info | outline | ghost | link` — ver `references/epa-ui.md`.
 
 ### Tablas de datos densas
 - Row height: 32–36px.
@@ -175,8 +176,8 @@ Easing por default: `cubic-bezier(0.4, 0, 0.2, 1)` (Material standard).
 ✗ Animaciones >800ms en interacciones de UI
 ✗ Reusar --chart-N como color de estado (success/warning/error) — son
   tokens de serie de datos, no semánticos (ver references/epa-ui.md)
-✗ Inventar una variante "success"/"warning"/"info" en Badge/Alert que no
-  existe en epa-ui — usar la regla provisional de delta/status pills
+✗ Badge variant="secondary" para un delta de KPI positivo — epa-ui nombró
+  esto explícitamente como el anti-patrón; usar "success" (ver epa-ui.md)
 ```
 
 ---
@@ -191,10 +192,10 @@ TOKENS
 [ ] Espaciado dentro de la escala (4/8/16/24/40/72)
 
 COMPONENTES
-[ ] Botones, pills y cards copiados de epa-ui a commit fijado (no
+[ ] Botones, pills y cards vienen de @epa-datos/ui instalado (no
     reinventados) — ver references/epa-ui.md
-[ ] Delta de KPI y status pills siguen la regla provisional de estado
-    semántico (secondary/destructive + ícono; Record<Status, BadgeVariant>)
+[ ] Delta de KPI usa variant="success"/"destructive" (nunca "secondary");
+    status pills con Record<Status, BadgeVariant> explícito
 [ ] Tablas con hairlines 0.5px y números en Plex Mono
 [ ] Estados hover/focus/disabled definidos
 

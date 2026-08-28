@@ -35,10 +35,12 @@ corrige antes de seguir.
     (ver epa-design/references/epa-ui.md).
 
 ✗ Un hex o valor OKLCH inline por componente para color de estado
-  (verde/ámbar "de éxito"/"de advertencia")
-  → epa-ui no tiene esas variantes todavía; la regla provisional (deltas
-    por secondary/destructive + ícono, status pills por mapa explícito) es
-    la única forma aceptada — ver epa-design/references/epa-ui.md.
+  (verde/ámbar "de éxito"/"de advertencia"), o `Badge variant="secondary"`
+  para un delta de KPI positivo
+  → epa-ui ya tiene variantes reales `success`/`warning`/`info` en
+    `Badge`/`Alert` — usarlas directo. `secondary` para un delta positivo es
+    el anti-patrón que el propio owner de epa-ui nombró explícitamente
+    — ver epa-design/references/epa-ui.md.
 
 ✗ Un segundo `<Toaster />` o un `TooltipProvider` adicional alrededor de un
   `Tooltip` puntual

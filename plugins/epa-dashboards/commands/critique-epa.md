@@ -33,9 +33,13 @@ Revisa cada regla y reporta pass/fail con `archivo:línea` del hallazgo.
      error. Sí marca como violación un `--epa-*` de marca usado en una
      superficie de producto.
    - Un hex/OKLCH inline usado como "color de éxito/advertencia" (verde,
-     ámbar) es violación **aunque no sea el azul EPA** — `epa-ui` no tiene
-     esa variante; la regla correcta es la de `epa-ui.md` (delta por
-     `secondary`/`destructive` + ícono, status pills por mapa explícito).
+     ámbar) es violación **aunque no sea el azul EPA** — `epa-ui` ya tiene
+     variantes reales `success`/`warning`/`info` en `Badge`/`Alert` (ver
+     `epa-ui.md`); usarlas directo en vez de un color a mano.
+   - **`Badge variant="secondary"` para un delta de KPI positivo es
+     hallazgo de Fase A**, no una alternativa aceptable — `epa-ui` nombró
+     esto explícitamente como incorrecto (`secondary` se lee neutral, no
+     "bueno"); la forma correcta es `variant="success"`.
 
 2. **Tipografía:** IBM Plex Sans en toda la UI, IBM Plex Mono en todo
    número o dato tabular.
@@ -52,10 +56,11 @@ Revisa cada regla y reporta pass/fail con `archivo:línea` del hallazgo.
    equivalente correcto — no marques el ícono como violación de "nunca
    emoji", no lo es. Ver `epa-design/references/epa-ui.md`.
 
-4. **Componentes:** las primitivas vienen de `epa-ui`, copiadas a commit
-   fijado (no hay registry de shadcn hoy — ver
-   `epa-design/references/epa-ui.md`). Busca componentes caseros que
-   dupliquen button/card/dialog/table en vez de usar `epa-ui`.
+4. **Componentes:** las primitivas vienen de `@epa-datos/ui` instalado vía
+   npm (ver `epa-design/references/epa-ui.md`). Busca componentes caseros
+   que dupliquen button/card/dialog/table, o un heatmap/funnel/date-range
+   hecho a mano cuando ya existe en `components/epa/*`, en vez de usar
+   `epa-ui`.
 
 5. **Charts** (si `$1` incluye alguno): título + subtítulo presentes,
    dentro de `ChartContainer`/`ChartConfig` (nunca un SVG a mano), colores

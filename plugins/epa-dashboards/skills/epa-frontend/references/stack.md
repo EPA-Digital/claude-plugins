@@ -22,8 +22,8 @@ que mencionan `@epa/*` en las secciones 2 y 5 de abajo.
 
 | Tema | Estado hoy (este skill, `SKILL.md`) | Estado objetivo (kit `@epa/*` como paquetes) |
 |---|---|---|
-| Charts | `ChartContainer`/`ChartConfig` de `epa-ui` + las 6 reglas de `epa-frontend` (título/subtítulo, comparación punteada, colores por canal vía `--chart-N`, máx. 6 series, cifras formateadas, botón "Ver tabla") | **SUPERSEDED por `epa-ui`** (ver nota abajo) — `@epa/charts` como paquete npm no existe; el artefacto real es un repo del que se copia. |
-| Primitivas UI | `epa-datos/epa-ui`, copiado a commit fijado (ver `epa-design/references/epa-ui.md`) — sobre Base UI, no Radix | **SUPERSEDED por `epa-ui`** — sin registry ni paquete `@epa/ui` hoy; pedido abierto a `@iescutia`. |
+| Charts | `ChartContainer`/`ChartConfig` de `@epa-datos/ui` + las 6 reglas de `epa-frontend` (título/subtítulo, comparación punteada, colores por canal vía `--chart-N`, máx. 6 series, cifras formateadas, botón "Ver tabla") | **Alcanzado, con otro nombre** (ver nota abajo) — no es `@epa/charts`, es `@epa-datos/ui` (un solo paquete, no tres) publicado en npm. |
+| Primitivas UI | `@epa-datos/ui` instalado vía npm (ver `epa-design/references/epa-ui.md`) — sobre Base UI, no Radix | **Alcanzado** — paquete real en npm desde 2026-08-24, resuelto en `epa-datos/epa-ui#5`. |
 | Acceso a datos | Route handlers del proyecto hacen `fetch` al backend Go (`apps/api`, sidecar), que corre las queries parametrizadas a BigQuery — ver `epa-backend` | **SUPERSEDED por la decisión de Go** (2026-08, ver nota abajo) — `@epa/data` como BFF en TypeScript ya no aplica. `useReport()` sobre TanStack Query sigue siendo válido del lado del navegador; lo que cambia es qué hay detrás: Go, no un BFF de Node. |
 | Backend del dashboard | `apps/api` — backend en Go forkeado de `epa-standards-backend`, sidecar del mismo servicio de Cloud Run que `apps/web` | **SUPERSEDED** — "el BFF del template es el único backend" describía un backend en TypeScript. El equipo decidió Go por depurabilidad del equipo de datos (ver `epa-backend/SKILL.md`), no TypeScript. Los route handlers de `apps/web` **siguen existiendo** — son el proxy obligatorio hacia `apps/api`, no algo a reemplazar. |
 | Creación del proyecto | Se sigue este skill a mano sobre un `create-next-app` no interactivo (ver sección 2) | `npx create-epa-dashboard {cliente}-{dashboard}` — template congelado con todo preinstalado. |
@@ -35,14 +35,18 @@ que mencionan `@epa/*` en las secciones 2 y 5 de abajo.
 > la columna "estado objetivo" — el kit llega preinstalado en el template,
 > distribuido como paquete npm.
 >
-> **✅ TODO resuelto (2026-08) — el kit no vive en `claude-plugins`.**
-> `@epa/*` como paquetes npm publicados no existe, y no es lo que se
-> integró: lo que existe y se integró es `epa-datos/epa-ui`, un repo propio
-> del que se **copia** a commit fijado (ver `epa-ui.md`), no un paquete que
-> se instale. El invariante de que `claude-plugins` no hospeda paquetes npm
-> (ver `CLAUDE.md` raíz) queda intacto — la pregunta de si algún día
-> publicar `@epa/*` de verdad sigue abierta y sigue siendo decisión del
-> equipo, pero deja de ser una ambigüedad que bloquee este documento.
+> **✅ TODO resuelto, dos veces (2026-08).** Primero: el kit no vive en
+> `claude-plugins` — el invariante de que este repo no hospeda paquetes npm
+> (ver `CLAUDE.md` raíz) queda intacto, porque lo que existe es
+> `epa-datos/epa-ui`, un repo propio de EPA. Segundo, y esto corrigió al
+> propio párrafo de arriba escrito hace unos días: **sí se volvió un
+> paquete de npm real** — `@epa-datos/ui` (no `@epa/ui`/`@epa/charts`/
+> `@epa/tokens` como tres paquetes separados, sino uno solo), publicado
+> 2026-08-24 con Trusted Publishing. `iescutia` lo explicó al cerrar
+> `epa-datos/epa-ui#5`: los componentes solo se editan en `epa-ui`, nunca en
+> los forks, así que un paquete da todo desde el día uno y actualizar es
+> `npm update` — un registry de shadcn no encajaba porque está pensado para
+> agregar componentes uno por uno, y aquí siempre se quiere todo de una vez.
 
 > **SUPERSEDED (2026-08) — el backend del dashboard es Go, no `@epa/data`.**
 > Cuando se escribió este documento (v1.0, agosto 2026), el plan de acceso
@@ -65,16 +69,18 @@ que mencionan `@epa/*` en las secciones 2 y 5 de abajo.
 > de obtenerla (propagarla a `apps/api`, no filtrar ella misma).
 
 > **SUPERSEDED (2026-08) — `@epa/ui`, `@epa/charts` y `@epa/tokens` como
-> paquetes npm de Dany, por `epa-ui`.** Este documento (v1.0) imaginaba tres
-> paquetes publicados y compilados. Lo que se integró es
-> `epa-datos/epa-ui`: un repo real, ya con 61 componentes sobre Base UI, que
-> se copia a commit fijado en vez de instalarse — ver
-> `epa-design/references/epa-ui.md` para el detalle completo (Base UI no
-> Radix, `ChartContainer`/`ChartConfig` como el `@epa/charts` que ya
-> resuelve la paleta categórica vía `--chart-1..10`, y la regla provisional
-> de estado semántico mientras `success`/`warning`/`info` no existan como
-> variante). No se borra esta nota por el mismo motivo que las de arriba —
-> conserva el porqué de lo que se había planeado.
+> tres paquetes npm de Dany, por un solo paquete: `@epa-datos/ui`.** Este
+> documento (v1.0) imaginaba tres paquetes separados publicados y
+> compilados. Lo que existe es `epa-datos/epa-ui`, publicado como **un
+> paquete de npm real**, `@epa-datos/ui` (npm, `pnpm add @epa-datos/ui`) —
+> ver `epa-design/references/epa-ui.md` para el detalle completo: Base UI
+> no Radix, `ChartContainer`/`ChartConfig` como el `@epa/charts` imaginado
+> (ya resuelve la paleta categórica vía `--chart-1..10`, más un tier nuevo
+> de widgets compuestos en `components/epa/*` que v1.0 no anticipaba:
+> `DateRangePicker`, `Heatmap`, `ConversionFunnel`, `MetricCardGroup`), y
+> variantes semánticas reales (`success`/`warning`/`info`) — ya no hace
+> falta una regla provisional. No se borra esta nota por el mismo motivo
+> que las de arriba — conserva el porqué de lo que se había planeado.
 
 ---
 
@@ -170,21 +176,22 @@ tres verdes o no hay deploy. Sin excepciones ni flags de skip.
 ## 5. El stack completo en una tabla (referencia rápida — vigente hoy)
 
 > Esta tabla describía el estado **objetivo** con paquetes `@epa/*`
-> publicados. Ese objetivo llegó, pero no en la forma que se había
-> planeado: `epa-ui` (repo, copiado a commit fijado) en vez de `@epa/ui` /
-> `@epa/charts` / `@epa/tokens` (paquetes npm). El resto de la tabla ya
-> reflejaba lo vigente hoy.
+> publicados. Ese objetivo llegó, en la forma de un solo paquete real:
+> `@epa-datos/ui` en npm, no los tres `@epa/ui`/`@epa/charts`/`@epa/tokens`
+> imaginados. El resto de la tabla ya reflejaba lo vigente hoy.
 
 ```
 Runtime          Node 22 LTS (pinned)
 Paquetes         pnpm 10 (corepack, engine-strict)
-Framework        Next.js 15 · App Router · src/ · Turbopack
+Framework        Next.js 16 · App Router · src/ · Turbopack
 Lenguaje         TypeScript estricto (sección 3) — any prohibido por lint
-Estilos          Tailwind v4 + tokens OKLCH de epa-ui — cero CSS custom
-UI               epa-ui (Base UI, no Radix), copiado a commit fijado —
+Estilos          Tailwind v4 + tokens OKLCH de @epa-datos/ui — cero CSS custom
+UI               @epa-datos/ui (npm, Base UI no Radix) —
                  ver epa-design/references/epa-ui.md
-Charts           ChartContainer/ChartConfig de epa-ui — Recharts se importa
-                 directo, pero solo dentro de ese contrato, nunca SVG a mano
+Charts           ChartContainer/ChartConfig de @epa-datos/ui — Recharts se
+                 importa directo, pero solo dentro de ese contrato, nunca
+                 SVG a mano; widgets compuestos (Heatmap, ConversionFunnel,
+                 etc.) en components/epa/* cuando no es serie de tiempo simple
 Backend          Go + gin, forkeado por dashboard de epa-standards-backend,
                  sidecar del mismo servicio — ver epa-backend (SUPERSEDE a
                  @epa/data como BFF, ver nota de arriba)
@@ -209,7 +216,7 @@ CI               epa-deploy: typecheck + lint + build como gate de deploy
 ✗ fetch directo a BQ/APIs     → todo dato pasa por un route handler que hace fetch al backend Go (apps/api)     [vigente hoy]
 ✗ Pages Router / mezclas      → App Router únicamente                                                          [vigente hoy]
 ✗ create-next-app interactivo → los dashboards se arman siguiendo SKILL.md (a futuro: create-epa-dashboard)    [vigente hoy]
-✗ componentes hechos a mano   → solo epa-ui a commit fijado; el registry de shadcn no existe todavía          [vigente hoy]
+✗ componentes hechos a mano   → solo @epa-datos/ui instalado vía npm; no hay registry de shadcn ni hace falta  [vigente hoy]
 ✗ SVG de chart a mano / bg-chart-${n} templado → solo dentro de ChartContainer, clases de chart literales     [vigente hoy]
 ✗ cliente de BigQuery en apps/web  → único control que compensa la SA compartida con apps/api (ver epa-backend) [vigente hoy]
 ```
