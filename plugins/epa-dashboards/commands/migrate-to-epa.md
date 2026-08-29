@@ -16,11 +16,11 @@ handlers, este comando migra eso a `apps/api` en Go, con tu confirmación
 antes de crear nada (ver Paso 6).
 
 **La librería de componentes tampoco es un bloqueo — es el Paso 3.5.**
-`epa-ui` (`epa-datos/epa-ui`) ya existe: si el proyecto tiene componentes
-hechos a mano, este comando los reemplaza por los de `epa-ui` copiados a
-commit fijado, con tu confirmación (ver Paso 3.5 y
-`epa-design/references/epa-ui.md`). **No queda nada bloqueado por falta de
-kit.**
+`@epa-datos/ui` ya existe como paquete de npm: si el proyecto tiene
+componentes hechos a mano, este comando los reemplaza por los de
+`@epa-datos/ui` instalados vía `pnpm add`, con tu confirmación (ver Paso 3.5
+y `epa-design/references/epa-ui.md`). **No queda nada bloqueado por falta
+de kit.**
 
 ## Paso 1 — Auditar y corregir lo mecánico (autofix)
 
@@ -74,9 +74,9 @@ de `epa-design/references/epa-ui.md`).
    encontrado, con archivo:línea, y a qué primitiva de `epa-ui` corresponde.
 2. **Proponer el plan al usuario y esperar confirmación explícita** antes
    de crear o borrar nada — cuántos componentes, en qué orden se migran.
-3. Una vez confirmado: copiar de `epa-datos/epa-ui` (a un commit fijado,
-   registrado en `AGENTS.md`) solo lo que el inventario necesita, y
-   reemplazar los componentes caseros uno por uno.
+3. Una vez confirmado: instalar `@epa-datos/ui` (`pnpm add @epa-datos/ui`,
+   pin de versión en `package.json`) y reemplazar los componentes caseros
+   uno por uno con los imports directos que necesita el inventario.
 4. Si algún componente casero **no** tiene equivalente en `epa-ui`: repórtalo
    como pedido pendiente para `@iescutia`, no lo migres a un sustituto
    improvisado.

@@ -119,9 +119,10 @@ que estás haciendo y usa la parte correcta del plugin sola.
 | **Stack de frontend** | Next.js, pnpm, TypeScript, Tailwind — el stack completo y cerrado, sin que tengas que decidir nada | Cuando construyes o modificas un dashboard |
 | **Backend en Go** | El servicio que de verdad consulta BigQuery — uno por dashboard, corre junto al frontend sin que tengas que desplegarlo aparte | Cuando el dashboard necesita datos reales de un cliente |
 | **Datos de BigQuery** | Sabe qué tablas usar por cliente y cómo escribir queries que no te cuesten dinero de más | Cuando escribes SQL o pides datos de un cliente |
-| **Design system** | Colores, tipografía y componentes oficiales de EPA | Cuando construyes cualquier pantalla |
+| **Design system** | Componentes y tokens salen de `epa-ui` (la librería real de EPA), no se hacen a mano — tipografía, colores y espaciado ya vienen resueltos | Cuando construyes cualquier pantalla |
 | **Deploy** | Te guía para subir el dashboard a producción (frontend y backend juntos) | Cuando dices "deploy" o "cómo subo esto" |
 | **Seguridad** | Te detiene si vas a hacer algo riesgoso (borrar algo, pegar una contraseña en el código) | Automático, todo el tiempo |
+| **Revisión de seguridad** | Un agente aparte revisa el código en busca de vulnerabilidades antes de darlo por bueno | Cuando pides una revisión de seguridad o antes de un deploy importante |
 
 Y 4 comandos que sí escribes tú, cuando los necesitas:
 
@@ -202,8 +203,8 @@ Claude los lee cuando hacen falta.
 
 | Repo | Qué es | Owner |
 |---|---|---|
-| `epa-datos/epa-ui` | Librería de componentes de producto — de ahí sale la UI real de un dashboard | iescutia |
-| `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — llena las tablas `{cliente}_etl` cuando un dato no está en el reporting normal | AxelRuiz123 |
+| `epa-datos/epa-ui` | Librería de componentes de producto, publicada en npm como `@epa-datos/ui` — de ahí sale la UI real de un dashboard | iescutia |
+| `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — cuando esté listo, llenará las tablas `{cliente}_etl` para datos que no están en el reporting normal. **Hoy no está listo:** fases 4-6 sin empezar, ningún dashboard puede leer `_etl` en producción todavía | AxelRuiz123 |
 
 ---
 

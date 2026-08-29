@@ -1,8 +1,17 @@
 # Dockerfile — Next.js en Cloud Run
 
 Multi-stage build para imagen pequeña, con pnpm (corepack) y Node 22 LTS —
-consistente con el stack cerrado de `epa-frontend`. **No usar `npm`** en
-ningún stage.
+consistente con el stack cerrado de `epa-frontend` (Next 16). **No usar
+`npm`** en ningún stage.
+
+> ⚠️ **Next 16 — tres áreas a revisar en el primer dashboard real**
+> (recomendación de `iescutia` al integrar `@epa-datos/ui`, ver
+> `epa-frontend/references/stack.md`): middleware de rutas protegidas,
+> `await` al leer `params`/`searchParams` en Server Components, y la imagen
+> base de Docker. Esta última **ya está resuelta** — `node:22-alpine`
+> satisface el mínimo de Next 16 — las otras dos no tienen código de
+> ejemplo en este plugin todavía, así que no hay nada que migrar hoy, solo
+> tenerlas presentes al escribir el primer middleware/route real.
 
 ```dockerfile
 FROM node:22-alpine AS deps

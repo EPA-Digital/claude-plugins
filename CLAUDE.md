@@ -84,8 +84,8 @@ cross-cliente — un rollup entre varios clientes se escala a Datos e IA.
 ## Stack canónico
 
 ```
-Frontend:        Next.js 15 App Router + Tailwind CSS + pnpm, en Cloud Run
-Componentes:     epa-ui (epa-datos/epa-ui), copiado a commit fijado —
+Frontend:        Next.js 16 App Router + Tailwind CSS + pnpm, en Cloud Run
+Componentes:     @epa-datos/ui (paquete de npm, epa-datos/epa-ui) —
                  Base UI, no Radix; primary real es el de epa-ui, no
                  #003AD6, en superficie de producto
 Backend:         Go + gin, forkeado por dashboard de epa-standards-backend,
@@ -128,7 +128,7 @@ necesitar leer o consumir:
 
 ```
 epa-datos/epa-ui    ← Librería de componentes de producto (owner: iescutia).
-                       Se copia a commit fijado, no se instala como paquete
+                       Se instala como paquete (@epa-datos/ui en npm)
                        — ver epa-design/references/epa-ui.md.
 epa-datos/epa-etl   ← pitagoras-etl, el ETL centralizado (owner: AxelRuiz123).
                        Su AGENTS.md está escrito para quien autora un config

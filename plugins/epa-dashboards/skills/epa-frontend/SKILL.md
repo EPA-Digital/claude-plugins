@@ -22,7 +22,7 @@ copy, componentes) y `epa-bq` (datos).
 ```
 Runtime          Node 22 LTS (.nvmrc)
 Paquetes         pnpm — NUNCA npm, yarn ni bun (ver anti-stack.md)
-Framework        Next.js 15 · App Router · src/ · Turbopack · alias @/*
+Framework        Next.js 16 · App Router · src/ · Turbopack · alias @/*
 Lenguaje         TypeScript estricto (regla 2)
 Estilos          Tailwind v4 con tokens EPA — cero CSS custom
 Validación       Zod en todos los boundaries (respuestas del backend Go,
@@ -56,11 +56,11 @@ reinventarla por proyecto.
 
 ## Regla 3 — Componentes: siempre de `epa-ui`, nunca hechos a mano
 
-Las primitivas de UI vienen de `epa-datos/epa-ui` (owner `iescutia`), sobre
-**Base UI**, no Radix. No hay registry de shadcn hoy — se **copian
-archivos** a un commit fijado, no se instalan con `pnpm dlx shadcn add`.
-Detalle completo, mapa intención→componente, y la regla de estado semántico
-provisional (`success`/`warning`/`info` no existen todavía):
+Las primitivas de UI vienen del paquete de npm **`@epa-datos/ui`**
+(`epa-datos/epa-ui`, owner `iescutia`), sobre **Base UI**, no Radix:
+`pnpm add @epa-datos/ui`. No hay registry de shadcn — el paquete de npm es
+la vía de distribución real. Detalle completo, mapa intención→componente, y
+las variantes semánticas reales (`success`/`warning`/`info`):
 `epa-design/references/epa-ui.md`.
 
 **NUNCA** crear un botón, card, dialog o cualquier primitiva desde cero, ni
@@ -92,6 +92,12 @@ Reglas obligatorias, sin excepción:
 se asignan a `--chart-1..10` de `epa-ui`, consistentes dentro del mismo
 dashboard — ver `epa-design/references/epa-ui.md`. Ya no está bloqueado
 esperando `@epa/tokens`.
+
+Si lo que se necesita no es una serie de tiempo simple — un heatmap
+hora×día, un funnel de conversión con drop-off por etapa, o KPI cards que
+también filtran series — `epa-ui` ya trae esos widgets en
+`components/epa/*`, no se arman a mano sobre `ChartContainer`. Ver la
+sección "Widgets compuestos" de `epa-design/references/epa-ui.md`.
 
 ---
 
@@ -158,9 +164,10 @@ y del plugin `epa-dashboards`.
 - Los charts van con `ChartContainer` (`epa-ui`) + las convenciones de
   `epa-frontend` (título/subtítulo, colores por canal desde `--chart-N`,
   máx. 6 series) — nunca CSS custom ni SVG a mano.
-- Las primitivas de UI vienen de `epa-ui`, copiadas al commit
-  `{SHA_DE_EPA_UI}` — nunca hechas a mano. Actualizar ese SHA es un cambio
-  deliberado, no un accidente de copiar de nuevo.
+- Las primitivas de UI vienen de `@epa-datos/ui@{version}` (npm), pin
+  exacto en `package.json` — nunca hechas a mano. Subir esa versión es un
+  cambio deliberado (`npm update` + revisar el release), no algo que pase
+  por accidente.
 - Sin login propio — el acceso se restringe en capa de plataforma (ver
   `references/auth.md`). No improvisar Firebase/NextAuth/tabla de usuarios.
 - Si el proyecto parece necesitar un ETL, un job programado o un segundo
