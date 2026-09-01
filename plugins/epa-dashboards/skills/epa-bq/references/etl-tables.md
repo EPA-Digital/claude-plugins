@@ -1,19 +1,23 @@
 # Tablas del ETL centralizado (`{cliente}_etl`) — cómo se leen
 
-Fuente: `epa-datos/epa-etl` (`pitagoras-etl`), HEAD `d605c23` al escribir
+Fuente: `epa-datos/epa-etl` (`pitagoras-etl`), HEAD `f43359f` al escribir
 esto. Este documento resume solo lo que un dashboard necesita para **leer**
 esas tablas sin corromper cifras — la especificación completa vive en
 `docs/plan.md` de ese repo, y `AGENTS.md` ahí está escrito para quien
 **autora un config** nuevo (ver `etl-config.md` en este mismo skill).
 
-> ⚠️ **Candado de estado, no una formalidad.** Al momento de escribir esto,
-> las fases 4, 5 y 6 del ETL **no han empezado**: no existe un endpoint
-> `POST /configs`, solo hay datasets `{cliente}_etl_dev` (no productivos), y
-> hay un bloqueo de permiso de Firestore abierto. **Ningún dashboard puede
-> leer una tabla `{cliente}_etl` en producción hoy.** Antes de cablear un
-> chart contra esto, confirma con `datos@epa.digital` que la tabla que
-> necesitas ya está en producción — no asumas que "existe en el plan" es lo
-> mismo que "existe en BigQuery".
+> ⚠️ **Candado de estado, no una formalidad.** Las fases 4, 5 y 6 del ETL ya
+> están construidas y desplegadas — `POST /configs` existe, y hay
+> producción real en `bdd-epa-digital` desde 2026-08-31. Pero **producción
+> tiene horas de vida, no meses**: su primer ledger se purgó por un bug real
+> (el `PROBE` de prod confundió sus propios load jobs con los de `dev`) y el
+> criterio del plan para dar por estable un config productivo —3 días
+> corriendo sin intervención— todavía no se cumple. **Ningún dashboard
+> debería leer una tabla `{cliente}_etl` en producción todavía**, no porque
+> no exista, sino porque nadie la ha visto estable el tiempo suficiente.
+> Antes de cablear un chart contra esto, confirma con `datos@epa.digital`
+> que la tabla que necesitas ya lleva varios días estable — no asumas que
+> "la tabla existe en BigQuery" es lo mismo que "los datos son confiables".
 
 ---
 

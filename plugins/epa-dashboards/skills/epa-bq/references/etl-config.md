@@ -19,9 +19,13 @@ escribir un config:
    "parece razonable".
 2. Confírmalo con `datos@epa.digital` / Axel — es quien mantiene el ETL y
    quien puede decir si ya existe algo equivalente.
-3. **Hoy no hay endpoint** (`POST /configs` es Fase 5, sin construir). No
-   hay forma de "solo probarlo" — cualquier config real pasa por una
-   persona del equipo de datos.
+3. **El endpoint existe y está desplegado** (`POST /configs`, `/validate` y
+   el resto — ver `AGENTS.md` del repo de `epa-etl`), pero **hoy no hay
+   forma de que tu sesión se autentique contra él**: la vía de agente
+   acepta una sola service account fija (la de Cloud Tasks, sin
+   allowlist) y la vía humana no está provisionada todavía. No es algo
+   que un config bien armado resuelva — sigue pasando por una persona del
+   equipo de datos, aunque ya no sea porque el endpoint no exista.
 
 ---
 
@@ -30,12 +34,15 @@ escribir un config:
 ```
 client: str        # slug de dataset BQ: ^[a-z][a-z0-9_]*$ — sin guiones
 dashboard: str      # slug con guiones permitidos: ^[a-z][a-z0-9-]*$
+owner: str          # email — de quién es la credencial que extrae. Obligatorio, SIN default
+environment: "prod" | "dev"   # obligatorio, SIN default
 extraction: {...}   # unión discriminada por provider — ver abajo
 dimensions: [...]   # nombres canónicos, opcional
 metrics: [...]      # nombres canónicos, ≥1, obligatorio
 granularity: "daily" | "hourly" = "daily"
 load: {mode: "replace_window", window_days: 1-90}
 notifications: {emails: [...], dedup_days: 1-30}
+status: "active" | "superseded" | "retired" = "active"
 ```
 
 Todo lo derivado (`config_id`, `dataset`, `table`, `grain_hash`,
