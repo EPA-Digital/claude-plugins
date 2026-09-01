@@ -66,15 +66,19 @@ ga360-250517.Epa_dataset              ← excepción Coppel (Domo).
 
 **`{cliente}_etl` vive en `bdd-epa-digital`, no en `epa-turing`.** Es una
 corrección de hecho sobre la spec original del ETL, que asumía `epa-turing`
-por error. La location del dataset **sigue al cliente** (D2 de
-`pitagoras-etl`): `chedraui_etl` nace en `us-central1` porque ahí vive
-`chedraui_reporting` — BigQuery no cruza locations en un `JOIN` — mientras
-que el ledger operativo (`pitagoras_etl_ops`) vive en `US`, porque es del
-servicio, no de un cliente. **Estado real hoy: fases 4-6 del ETL sin
-empezar** — solo existen datasets `{cliente}_etl_dev`, no hay endpoint para
-crear configs, y ningún dashboard puede leer `_etl` en producción todavía.
-Detalle completo, incluido cuándo y cómo leerlo una vez que exista:
-`skills/epa-bq/references/etl-tables.md` y `etl-config.md`.
+por error. La location del dataset es **fija** (`us-central1`,
+`CLIENT_LOCATION` en `pitagoras-etl`): una decisión anterior la hacía
+seguir al cliente para poder unir con `{cliente}_reporting`, pero ese join
+no lo hace nadie — se retiró (v1.9 del plan de `pitagoras-etl`). El ledger
+operativo (`pitagoras_etl_ops`) vive en `US`, porque es del servicio, no de
+un cliente. **Estado real hoy: las fases 4-6 del ETL están construidas y
+desplegadas** — `POST /configs` existe, y hay producción real desde
+2026-08-31 — **pero ningún dashboard debería leer `_etl` en producción
+todavía**: el criterio de estabilidad del plan (3 días corriendo sin
+intervención) no se cumple aún, y hoy tampoco hay forma de que un
+dashboard se autentique contra la API para autorar un config. Detalle
+completo, incluido el estado exacto: `skills/epa-bq/references/etl-tables.md`
+y `etl-config.md`.
 
 **DEPRECADO:** `bdd-epa-digital.epa_agency_reports`. No existe reemplazo
 cross-cliente — un rollup entre varios clientes se escala a Datos e IA.
