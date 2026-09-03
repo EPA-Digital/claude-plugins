@@ -19,13 +19,24 @@ escribir un config:
    "parece razonable".
 2. Confírmalo con `datos@epa.digital` / Axel — es quien mantiene el ETL y
    quien puede decir si ya existe algo equivalente.
-3. **El endpoint existe y está desplegado** (`POST /configs`, `/validate` y
-   el resto — ver `AGENTS.md` del repo de `epa-etl`), pero **hoy no hay
-   forma de que tu sesión se autentique contra él**: la vía de agente
-   acepta una sola service account fija (la de Cloud Tasks, sin
-   allowlist) y la vía humana no está provisionada todavía. No es algo
-   que un config bien armado resuelva — sigue pasando por una persona del
-   equipo de datos, aunque ya no sea porque el endpoint no exista.
+3. **Podés llamar la API vos mismo**, con el `gcloud` de la persona con la
+   que estás trabajando — no hace falta esperar a que alguien de Datos e
+   IA lo cree por ti, y funciona contra los dos entornos:
+
+   ```bash
+   curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+     https://pitagoras-etl-prod-l6dmrzkz7a-uc.a.run.app/configs   # o la URL de dev
+   ```
+
+   El servicio acepta el id token de cualquier cuenta `@epa.digital` — no
+   necesita Identity Platform ni una service account nueva (ver
+   `AGENTS.md` del repo de `epa-etl` para el detalle). Dos cosas que eso
+   implica: **el token dura 1 hora** (nada desatendido, se vuelve a pedir
+   y listo), y **el config queda a nombre de esa persona** — gasta su
+   cuota de Pitágoras (100 llamadas/día) y extrae con sus permisos. Si no
+   tiene acceso al cliente en Pitágoras, el config valida y **nunca trae
+   datos**, sin error visible en ningún lado — por eso el paso 2 sigue
+   siendo confirmar con Axel antes de crear, no solo con quien te lo pidió.
 
 ---
 

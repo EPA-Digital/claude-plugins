@@ -58,7 +58,7 @@ ga360-250517         ← BigQuery exclusivo de Coppel (dataset Epa_dataset)
 bdd-epa-digital.{cliente}_reporting   ← fuente de verdad. Granular por
                                          cliente y plataforma de medios.
 bdd-epa-digital.{cliente}_etl.{tabla} ← tablas del ETL centralizado
-                                         (pitagoras-etl, en construcción por
+                                         (pitagoras-etl, operado por
                                          Datos e IA). NO es epa-turing —
                                          mismo proyecto que el reporting.
 ga360-250517.Epa_dataset              ← excepción Coppel (Domo).
@@ -72,12 +72,13 @@ seguir al cliente para poder unir con `{cliente}_reporting`, pero ese join
 no lo hace nadie — se retiró (v1.9 del plan de `pitagoras-etl`). El ledger
 operativo (`pitagoras_etl_ops`) vive en `US`, porque es del servicio, no de
 un cliente. **Estado real hoy: las fases 4-6 del ETL están construidas y
-desplegadas** — `POST /configs` existe, y hay producción real desde
-2026-08-31 — **pero ningún dashboard debería leer `_etl` en producción
-todavía**: el criterio de estabilidad del plan (3 días corriendo sin
-intervención) no se cumple aún, y hoy tampoco hay forma de que un
-dashboard se autentique contra la API para autorar un config. Detalle
-completo, incluido el estado exacto: `skills/epa-bq/references/etl-tables.md`
+desplegadas**, con producción real desde 2026-08-31, y desde el
+2026-09-02 cualquier persona de EPA puede autorar configs con su propio
+`gcloud` — no hace falta esperar a Datos e IA para crear uno. Lo que sí
+sigue siendo caso por caso es si una tabla **ya es confiable**: el criterio
+de estabilidad del plan (3 días corriendo sin fallar) no lo cumplen todos
+los configs todavía, y se verifica por config, no se asume. Detalle
+completo, incluido cómo verificarlo: `skills/epa-bq/references/etl-tables.md`
 y `etl-config.md`.
 
 **DEPRECADO:** `bdd-epa-digital.epa_agency_reports`. No existe reemplazo
