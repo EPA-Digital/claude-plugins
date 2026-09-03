@@ -1,23 +1,24 @@
 # Tablas del ETL centralizado (`{cliente}_etl`) — cómo se leen
 
-Fuente: `epa-datos/epa-etl` (`pitagoras-etl`), HEAD `f43359f` al escribir
+Fuente: `epa-datos/epa-etl` (`pitagoras-etl`), HEAD `68b360d` al escribir
 esto. Este documento resume solo lo que un dashboard necesita para **leer**
 esas tablas sin corromper cifras — la especificación completa vive en
 `docs/plan.md` de ese repo, y `AGENTS.md` ahí está escrito para quien
 **autora un config** nuevo (ver `etl-config.md` en este mismo skill).
 
-> ⚠️ **Candado de estado, no una formalidad.** Las fases 4, 5 y 6 del ETL ya
-> están construidas y desplegadas — `POST /configs` existe, y hay
-> producción real en `bdd-epa-digital` desde 2026-08-31. Pero **producción
-> tiene horas de vida, no meses**: su primer ledger se purgó por un bug real
-> (el `PROBE` de prod confundió sus propios load jobs con los de `dev`) y el
-> criterio del plan para dar por estable un config productivo —3 días
-> corriendo sin intervención— todavía no se cumple. **Ningún dashboard
-> debería leer una tabla `{cliente}_etl` en producción todavía**, no porque
-> no exista, sino porque nadie la ha visto estable el tiempo suficiente.
-> Antes de cablear un chart contra esto, confirma con `datos@epa.digital`
-> que la tabla que necesitas ya lleva varios días estable — no asumas que
-> "la tabla existe en BigQuery" es lo mismo que "los datos son confiables".
+> ⚠️ **Candado de estado, no una formalidad.** Las fases 4, 5 y 6 del ETL
+> están construidas y desplegadas, con producción real en `bdd-epa-digital`
+> desde 2026-08-31, y desde el 2026-09-02 cualquier persona de EPA puede
+> autorar configs con su propio `gcloud` (ver `etl-config.md`). Pero que un
+> config exista y hasta que ya traiga datos **no dice que su tabla sea
+> confiable todavía**: el criterio del plan para eso es 3 días corriendo sin
+> fallar, y no todos los configs lo cumplen — el primer ledger de producción
+> se purgó por un bug real (el `PROBE` de prod confundió sus propios load
+> jobs con los de `dev`), así que "existe desde tal fecha" no es lo mismo
+> que "lleva ese tiempo estable". **Antes de cablear un chart nuevo,
+> verificá la racha real** con `GET /configs/{config_id}/runs` (trae
+> `consecutive_days` ya calculado) — no la asumas por la edad del config ni
+> por que la tabla "existe en BigQuery".
 
 ---
 
