@@ -30,13 +30,16 @@ ga360-250517.Epa_dataset              ← excepción Coppel (Domo). Solo si es
                                          epa-safe-vibe.
 ```
 
-> ⚠️ **`{cliente}_etl` está en construcción — fases 4-6 del ETL sin
-> empezar.** Hoy solo existen datasets `{cliente}_etl_dev`, no hay endpoint
-> para crear un config, y ningún dashboard puede leer esto en producción
-> todavía. No construyas un dashboard sobre `_etl` sin confirmar el estado
-> real con `datos@epa.digital` primero. Cómo se **lee** una vez que exista:
-> `references/etl-tables.md`. Qué hacer cuando el dato que falta no está en
-> ningún dataset (autorar un config nuevo): `references/etl-config.md`.
+> ⚠️ **`{cliente}_etl` ya está en producción real** (desde 2026-08-31), y
+> desde el 2026-09-02 cualquier persona de EPA puede autorar un config con
+> su propio `gcloud` — ya no hace falta esperar a Datos e IA para crearlo.
+> Lo que sigue siendo caso por caso es si una tabla **ya es confiable**: el
+> criterio de estabilidad del plan (3 días corriendo sin fallar) no lo
+> cumplen todos los configs todavía, y se verifica por config
+> (`GET /configs/{config_id}/runs`), no se asume por la edad del config.
+> Cómo se **lee** sin corromper cifras: `references/etl-tables.md`. Qué
+> hacer cuando el dato que falta no está en ningún dataset (autorar un
+> config nuevo): `references/etl-config.md`.
 
 **DEPRECADO:** `bdd-epa-digital.epa_agency_reports`. Ya no se usa ni se
 duplica — no es la fuente de nada.

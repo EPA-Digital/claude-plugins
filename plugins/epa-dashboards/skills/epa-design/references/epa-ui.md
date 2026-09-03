@@ -53,16 +53,15 @@ repo (ver sección de providers abajo).
 registrar a mano en el `AGENTS.md` del dashboard — el pin de versión en
 `package.json` **es** el registro.
 
-> ⚠️ **Verificar en el primer `pnpm add` real:** el `package.json` del
-> paquete declara `react`/`react-dom` como `peerDependencies` (`^19`) **y
-> también** como `dependencies` fijas (`19.2.8`) al mismo tiempo — packaging
-> inusual para una librería de componentes. No está confirmado que esto
-> produzca una copia de React duplicada (el comportamiento normal de pnpm
-> es que la resolución de peer gane y no haya nesting), pero si al instalar
-> aparece un error de tipo `Invalid hook call` en runtime, la mitigación es
-> fijar `react`/`react-dom` a `19.2.8` exacto en el `package.json` del
-> dashboard para forzar una sola copia. Reportado como pregunta abierta a
-> `epa-datos/epa-ui`, sin confirmar como bug.
+> ✅ **Verificado, no es un problema real:** el `package.json` del paquete
+> declara `react`/`react-dom` como `peerDependencies` (`^19`) **y también**
+> como `dependencies` fijas (`19.2.8`) al mismo tiempo — packaging inusual,
+> reportado como pregunta en `epa-datos/epa-ui#6`. Se probó con un
+> `pnpm add @epa-datos/ui` real en un proyecto limpio: pnpm resuelve un
+> único `react@19.2.8` en todo el árbol (`.pnpm/react@19.2.8`), y el symlink
+> interno de `@epa-datos/ui` apunta a esa misma instancia — **no hay copia
+> duplicada**. No hace falta fijar versión de `react`/`react-dom` en el
+> dashboard por esto.
 
 **El layout de archivos es contrato público.** `AGENTS.md` de `epa-ui` lo
 dice explícito: `exports` de su `package.json` mapea 1:1 cada ruta bajo

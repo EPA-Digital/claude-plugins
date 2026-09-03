@@ -128,7 +128,22 @@ api.linkedin.com/v2/adAccounts              ← LinkedIn Ads
 displayvideo.googleapis.com                 ← DV360
 doubleclickbidmanager.googleapis.com        ← DV360 reporting
 pitagoras-api-*.run.app                     ← Pitágoras (API REST o MCP/Tokyo)
+pitagoras-etl-*.run.app                     ← pitagoras-etl (config API — ver
+                                               nota abajo, distinto de arriba)
 ```
+
+> **`pitagoras-etl-*.run.app` es un caso especial: bloqueado en runtime,
+> permitido al autorar un config.** Desde que el ETL está en producción
+> (2026-08-31), su API de configs es real y llamable con un id token
+> `@epa.digital` cualquiera (ver `epa-bq/references/etl-config.md`). Esa
+> llamada es correcta **como acción puntual de una sesión de Claude Code o
+> de una persona en su terminal**, para crear o consultar un config — nunca
+> como código que vive dentro de `apps/web` o `apps/api` y se ejecuta en
+> cada request. Si ves un `fetch`/`http.Client` a `pitagoras-etl-*.run.app`
+> dentro del código fuente del dashboard (no en un comando de terminal ni en
+> un script de setup), es el mismo bloqueo que cualquier otra API externa:
+> el dashboard lee `bdd-epa-digital.{cliente}_etl` en BigQuery, nunca llama
+> al servicio que la llena.
 
 También bloquear librerías cliente que conectan directo, en cualquiera de
 los dos runtimes del dashboard:

@@ -204,7 +204,7 @@ Claude los lee cuando hacen falta.
 | Repo | Qué es | Owner |
 |---|---|---|
 | `epa-datos/epa-ui` | Librería de componentes de producto, publicada en npm como `@epa-datos/ui` — de ahí sale la UI real de un dashboard | iescutia |
-| `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — cuando esté listo, llenará las tablas `{cliente}_etl` para datos que no están en el reporting normal. **Hoy no está listo:** fases 4-6 sin empezar, ningún dashboard puede leer `_etl` en producción todavía | AxelRuiz123 |
+| `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — llena las tablas `{cliente}_etl` cuando un dato no está en el reporting normal. En producción real desde 2026-08-31; cualquier persona de EPA puede autorar un config propio (ver `epa-bq/references/etl-config.md`) | AxelRuiz123 |
 
 ---
 

@@ -38,6 +38,15 @@ escribir un config:
    datos**, sin error visible en ningún lado — por eso el paso 2 sigue
    siendo confirmar con Axel antes de crear, no solo con quien te lo pidió.
 
+> ⚠️ **Este `curl` es una acción puntual de terminal, nunca código del
+> dashboard.** Se corre una vez, a mano o como parte de esta sesión de
+> Claude Code, para crear o consultar un config — jamás como un `fetch`/
+> `http.Client` dentro de `apps/web` o `apps/api` que se ejecute en cada
+> request. El dashboard en runtime solo lee `bdd-epa-digital.{cliente}_etl`
+> en BigQuery (ver `etl-tables.md`); llamar a `pitagoras-etl-*.run.app`
+> desde el código del dashboard es el mismo bloqueo que cualquier otra API
+> externa — ver `epa-safe-vibe` B3.
+
 ---
 
 ## El contrato, en una vista rápida
