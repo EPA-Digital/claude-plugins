@@ -30,7 +30,9 @@ si no se confirmó.
 3. **Módulos que necesita** — ofrece este menú, permite elegir varios:
    - Overview de canales
    - Por hora
-   - Presupuestos / pacing
+   - Presupuestos / pacing (dato real en BigQuery, `dw_epa_digital` — ver
+     `epa-bq/references/budgets-deming.md` antes de prometerlo: hoy la
+     sync puede estar congelada, verificar antes de comprometerse)
    - Eventos / promos
    - Categorías y productos
    - Custom (pedir que lo describa)

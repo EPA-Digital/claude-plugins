@@ -130,6 +130,9 @@ doubleclickbidmanager.googleapis.com        ← DV360 reporting
 pitagoras-api-*.run.app                     ← Pitágoras (API REST o MCP/Tokyo)
 pitagoras-etl-*.run.app                     ← pitagoras-etl (config API — ver
                                                nota abajo, distinto de arriba)
+budgets-auditor-*.run.app                   ← "Deming" — audita/recalcula
+                                               presupuestos (ver nota abajo)
+budget-alerts-*.run.app                     ← notificaciones de presupuesto
 ```
 
 > **`pitagoras-etl-*.run.app` es un caso especial: bloqueado en runtime,
@@ -144,6 +147,19 @@ pitagoras-etl-*.run.app                     ← pitagoras-etl (config API — ve
 > un script de setup), es el mismo bloqueo que cualquier otra API externa:
 > el dashboard lee `bdd-epa-digital.{cliente}_etl` en BigQuery, nunca llama
 > al servicio que la llena.
+
+> **`budgets-auditor`/`budget-alerts` ("Deming") no tienen la excepción de
+> arriba** — a diferencia de `pitagoras-etl`, `budgets-auditor` no expone
+> una API pensada para que una sesión la llame nunca; es 100% un job
+> automático de Datos e IA que corre diario contra Firestore. Un dashboard
+> que necesita datos de presupuesto/pacing lee
+> `bdd-epa-digital.dw_epa_digital.bu_budget_performance` (y tablas
+> hermanas) en BigQuery — nunca estas dos Cloud Run, nunca la colección
+> `budgets` de Firestore directo (ya está protegida, ver
+> `references/protected-resources.md`), y nunca `deming-mcp` (ese es un
+> servidor MCP para que un humano cargue presupuestos vía Claude, con
+> confirmación obligatoria — no una fuente de datos de runtime). Detalle
+> completo: `epa-bq/references/budgets-deming.md`.
 
 También bloquear librerías cliente que conectan directo, en cualquiera de
 los dos runtimes del dashboard:
@@ -374,9 +390,10 @@ Firestore (bdd-epa-digital — nombres en lowercase, son legacy):
 Secret Manager (epa-turing):
   FacebookAccessToken, TiktokToken, GoogleAdsYAML, BingAccessTokenEpa
 
-Cloud Run (epa-turing):
-  cualquier servicio SIN sufijo -vibe puede ser un producto curado en
-  producción (incluido dashboard.epa.digital / Newton) — nunca sobrescribir
+Cloud Run (proyectos varios):
+  pitagoras-api (epa-turing) · epa-dashboard/Newton y budgets-auditor/
+  budget-alerts ("Deming", en bdd-epa-digital) — cualquier servicio SIN
+  sufijo -vibe puede ser un producto curado en producción — nunca sobrescribir
   sin verificar existencia primero (ver B7)
 ```
 

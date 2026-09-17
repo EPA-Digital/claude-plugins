@@ -157,6 +157,7 @@ Secret Manager (epa-turing):
 
 Cloud Run (proyectos varios):
   epa-dashboard (Newton, en bdd-epa-digital) · pitagoras-api (epa-turing)
+  budgets-auditor / budget-alerts ("Deming", en bdd-epa-digital)
   — cualquier servicio SIN sufijo -vibe puede ser producción real.
 ```
 

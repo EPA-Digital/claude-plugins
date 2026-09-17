@@ -84,11 +84,23 @@ necesitarlos directamente (ver B3 en `SKILL.md`).
 |---|---|---|
 | `epa-dashboard` (**Newton**) | `bdd-epa-digital` | Intranet de EPA en `dashboard.epa.digital` — dashboard usado a diario para revisar el estatus de cuentas. Lleva >1 año corriendo con ese nombre genérico (legacy; debió ser `newton-web`). |
 | `pitagoras-api` | `epa-turing` | Capa centralizada de medios (8 providers). Romperla rompe el ETL centralizado. |
+| `budgets-auditor` ("Deming") | `bdd-epa-digital` | Recalcula gasto/ROAS de presupuesto y sobrescribe Firestore, corre diario. Romperlo corrompe presupuestos de toda la agencia en silencio. |
+| `budget-alerts` | `bdd-epa-digital` | Notificaciones sobre presupuestos — mismo dominio que `budgets-auditor`. |
 
 **Operaciones bloqueadas (BLOQUEO TOTAL):**
 - `gcloud run deploy` apuntando a uno de estos nombres (sobrescribe el servicio vivo).
 - `gcloud run services delete/update/replace` sobre ellos.
 - Crear un trigger de Cloud Build que despliegue sobre estos nombres.
+
+**Contexto, no protección nueva** — ya cubiertos por la regla general
+("cualquier servicio SIN sufijo `-vibe` puede ser producción real") y por
+`guard-cloud-deploy.sh`: `epa-control-budget-api`/`epa-control-budget-web`
+(`epa-turing`) son el dashboard de presupuestos legado — Vite+React y
+Python/FastAPI, dos servicios separados, ambos `--allow-unauthenticated`,
+password horneado en el build del frontend. Se anotan aquí para
+reconocerlos como lo que son, no como un patrón a replicar (ver
+`epa-safe-vibe` B5/B6/B7 y `epa-bq/references/budgets-deming.md`) — no
+para que el hook los trate distinto de cualquier otro nombre sin `-vibe`.
 
 > ⚠️ **Incidente Newton (2026-06-09):** un deploy automatizado reusó el
 > nombre `epa-dashboard` en `bdd-epa-digital` y sobrescribió a Newton.
