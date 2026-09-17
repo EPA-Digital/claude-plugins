@@ -118,7 +118,7 @@ que estás haciendo y usa la parte correcta del plugin sola.
 |---|---|---|
 | **Stack de frontend** | Next.js, pnpm, TypeScript, Tailwind — el stack completo y cerrado, sin que tengas que decidir nada | Cuando construyes o modificas un dashboard |
 | **Backend en Go** | El servicio que de verdad consulta BigQuery — uno por dashboard, corre junto al frontend sin que tengas que desplegarlo aparte | Cuando el dashboard necesita datos reales de un cliente |
-| **Datos de BigQuery** | Sabe qué tablas usar por cliente y cómo escribir queries que no te cuesten dinero de más | Cuando escribes SQL o pides datos de un cliente |
+| **Datos de BigQuery** | Sabe qué tablas usar por cliente, cómo escribir queries que no te cuesten dinero de más, y cuándo un dato no está en el reporting normal y hay que ir al ETL centralizado (ver "Repos hermanos" más abajo) | Cuando escribes SQL o pides datos de un cliente |
 | **Design system** | Componentes y tokens salen de `epa-ui` (la librería real de EPA), no se hacen a mano — tipografía, colores y espaciado ya vienen resueltos | Cuando construyes cualquier pantalla |
 | **Deploy** | Te guía para subir el dashboard a producción (frontend y backend juntos) | Cuando dices "deploy" o "cómo subo esto" |
 | **Seguridad** | Te detiene si vas a hacer algo riesgoso (borrar algo, pegar una contraseña en el código) | Automático, todo el tiempo |
@@ -204,7 +204,33 @@ Claude los lee cuando hacen falta.
 | Repo | Qué es | Owner |
 |---|---|---|
 | `epa-datos/epa-ui` | Librería de componentes de producto, publicada en npm como `@epa-datos/ui` — de ahí sale la UI real de un dashboard | iescutia |
-| `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — llena las tablas `{cliente}_etl` cuando un dato no está en el reporting normal. En producción real desde 2026-08-31; cualquier persona de EPA puede autorar un config propio (ver `epa-bq/references/etl-config.md`) | AxelRuiz123 |
+| `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — detalle abajo | AxelRuiz123 |
+
+### `epa-etl` (`pitagoras-etl`) — cuándo entra en juego un dashboard
+
+Un dashboard **nunca llama a Pitágoras directo** (ni su API ni su MCP,
+deprecado). El único consumidor autorizado de Pitágoras es este ETL
+centralizado, que llena tablas `bdd-epa-digital.{cliente}_etl.*` cuando un
+dato de medios que necesitas **no** está en `{cliente}_reporting`.
+
+```
+¿El dato ya está en {cliente}_reporting?
+  Sí  → úsalo directo, es la fuente de verdad (ver skill epa-bq).
+  No  → puede que ya exista en {cliente}_etl, o haga falta un config nuevo.
+        Ya no depende de esperar a Datos e IA: desde el 2026-09-02
+        cualquier persona de EPA puede autorar un config con su propio
+        gcloud.
+```
+
+**Estado real:** las fases 4-6 del ETL están construidas y desplegadas,
+con producción real desde el 2026-08-31. Que un config exista y ya tenga
+datos **no** significa que su tabla sea confiable todavía — el criterio es
+3 días corriendo sin fallar, y se verifica caso por caso, nunca se asume
+por la antigüedad del config.
+
+Detalle completo — cómo leer sus tablas sin corromper cifras, cómo autorar
+un config nuevo: `epa-bq/references/etl-tables.md` y `etl-config.md`
+(dentro del skill `epa-bq` de este mismo repo).
 
 ---
 

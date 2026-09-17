@@ -25,6 +25,12 @@ bdd-epa-digital.{cliente}_etl.{tabla} ← tablas que produzca el ETL
                                          necesitas no está en
                                          {cliente}_reporting.
 
+bdd-epa-digital.dw_epa_digital.*      ← dataset cross-cliente (existe desde
+                                         2021, no es epa_agency_reports).
+                                         Presupuestos/pacing ("Deming") —
+                                         úsalo solo para ese módulo, ver
+                                         references/budgets-deming.md.
+
 ga360-250517.Epa_dataset              ← excepción Coppel (Domo). Solo si es
                                          estrictamente necesario — ver
                                          epa-safe-vibe.
