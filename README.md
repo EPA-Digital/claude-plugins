@@ -118,7 +118,7 @@ que estás haciendo y usa la parte correcta del plugin sola.
 |---|---|---|
 | **Stack de frontend** | Next.js, pnpm, TypeScript, Tailwind — el stack completo y cerrado, sin que tengas que decidir nada | Cuando construyes o modificas un dashboard |
 | **Backend en Go** | El servicio que de verdad consulta BigQuery — uno por dashboard, corre junto al frontend sin que tengas que desplegarlo aparte | Cuando el dashboard necesita datos reales de un cliente |
-| **Datos de BigQuery** | Sabe qué tablas usar por cliente, cómo escribir queries que no te cuesten dinero de más, y cuándo un dato no está en el reporting normal y hay que ir al ETL centralizado (ver "Repos hermanos" más abajo) | Cuando escribes SQL o pides datos de un cliente |
+| **Datos de BigQuery** | Sabe qué tablas usar por cliente, cómo escribir queries que no te cuesten dinero de más, cuándo un dato no está en el reporting normal y hay que ir al ETL centralizado, y de dónde sale el módulo de presupuestos/pacing (ver "Repos hermanos" más abajo) | Cuando escribes SQL o pides datos de un cliente |
 | **Design system** | Componentes y tokens salen de `epa-ui` (la librería real de EPA), no se hacen a mano — tipografía, colores y espaciado ya vienen resueltos | Cuando construyes cualquier pantalla |
 | **Deploy** | Te guía para subir el dashboard a producción (frontend y backend juntos) | Cuando dices "deploy" o "cómo subo esto" |
 | **Seguridad** | Te detiene si vas a hacer algo riesgoso (borrar algo, pegar una contraseña en el código) | Automático, todo el tiempo |
@@ -197,7 +197,7 @@ claude-plugins/
 
 ## Repos hermanos
 
-Este repo es el plugin. Dos repos aparte, de la organización `epa-datos`,
+Este repo es el plugin. Los repos de abajo, de la organización `epa-datos`,
 son lo que ese plugin lee y consume — no necesitas instalar nada de ahí,
 Claude los lee cuando hacen falta.
 
@@ -205,6 +205,7 @@ Claude los lee cuando hacen falta.
 |---|---|---|
 | `epa-datos/epa-ui` | Librería de componentes de producto, publicada en npm como `@epa-datos/ui` — de ahí sale la UI real de un dashboard | iescutia |
 | `epa-datos/epa-etl` | ETL centralizado (`pitagoras-etl`) — detalle abajo | AxelRuiz123 |
+| `epa-datos/budgets-auditor` | Apodo interno: **"Deming"**. Recalcula presupuesto/pacing/ROAS a diario — detalle abajo | Eddye-Mx |
 
 ### `epa-etl` (`pitagoras-etl`) — cuándo entra en juego un dashboard
 
@@ -231,6 +232,25 @@ por la antigüedad del config.
 Detalle completo — cómo leer sus tablas sin corromper cifras, cómo autorar
 un config nuevo: `epa-bq/references/etl-tables.md` y `etl-config.md`
 (dentro del skill `epa-bq` de este mismo repo).
+
+### `budgets-auditor` ("Deming") — el módulo de presupuestos/pacing
+
+Un dashboard **nunca llama a `budgets-auditor` ni a su servicio hermano
+`budget-alerts`** — corren diario contra Firestore, y ese Firestore está
+protegido (bloqueo total). Lo que un dashboard sí puede leer es la copia
+en BigQuery que ese servicio va llenando: `bdd-epa-digital.dw_epa_digital`
+(tablas `bu_budget_performance`, `bu_budgets`, `bu_spend`, `cl_clients`).
+
+> ⚠️ **Antes de prometer este módulo, verifica que el dato esté vivo.**
+> Medido al integrar esto (2026-09-17): la sincronización a BigQuery lleva
+> meses congelada. La query para comprobarlo y qué hacer si sigue
+> congelada: `epa-bq/references/budgets-deming.md` (dentro del skill
+> `epa-bq` de este mismo repo) — es lectura obligatoria antes de construir
+> este módulo, no un detalle opcional.
+
+`deming-mcp` es un repo aparte, todavía en desarrollo, para que un humano
+cargue presupuestos *planeados* desde Sheets vía Claude — no es algo que
+un dashboard use.
 
 ---
 
