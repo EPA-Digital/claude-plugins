@@ -107,6 +107,8 @@ const token = process.env.EPA_ADMIN_TOKEN
 token := config.Cfg.AdminToken
 ```
 
+Guía completa (crear, consumir, rotar, checklist): `references/secrets.md`.
+
 Secretos disponibles hoy en `epa-turing`: `FacebookAccessToken`,
 `TiktokToken`, `GoogleAdsYAML`, `BingAccessTokenEpa` — estos son del ETL
 centralizado, un dashboard no debería necesitarlos directamente (ver B3).

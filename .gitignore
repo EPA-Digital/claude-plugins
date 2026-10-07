@@ -34,3 +34,6 @@ venv/
 
 # OS-level junk
 .fseventsd/
+
+# Tipos que Claude Code genera al cargar un mod (se regeneran por versión)
+.claude-plugin/types/

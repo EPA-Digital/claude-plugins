@@ -1,4 +1,6 @@
 {
+  "description": "Guards de epa-dashboards: el módulo de mods (Claude Code ≥ 2.1.287) y guard-cloud-deploy.sh como respaldo para versiones sin mods.",
+  "modules": ["./register.ts"],
   "hooks": {
     "PreToolUse": [
       {
@@ -6,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/guard-cloud-deploy.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/guard-cloud-deploy.sh\""
           }
         ]
       }
