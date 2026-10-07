@@ -11,26 +11,6 @@ explicárselo cada vez.
 
 ---
 
-## ⚠️ ¿Ya tenías instalados los plugins viejos?
-
-Si en algún momento instalaste `epa-naming`, `epa-safe-vibe`, `epa-stack`,
-`epa-design` o `epa-cicd`, quítalos — ya no existen en este repo y pueden
-darte instrucciones desactualizadas. Pega esto en tu terminal:
-
-```bash
-claude plugin uninstall epa-naming@epa-plugins
-claude plugin uninstall epa-safe-vibe@epa-plugins
-claude plugin uninstall epa-stack@epa-plugins
-claude plugin uninstall epa-design@epa-plugins
-claude plugin uninstall epa-cicd@epa-plugins
-claude plugin install epa-dashboards@epa-plugins
-```
-
-Si nunca los instalaste, ignora esta sección y sigue con la instalación
-normal de abajo.
-
----
-
 ## ¿Ya tienes un dashboard empezado con otro stack?
 
 Si ya escribiste código — con `npm` en vez de `pnpm`, otra librería de

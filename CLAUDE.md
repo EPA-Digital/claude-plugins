@@ -7,8 +7,12 @@ o un dashboard generado con él.
 exclusivo para generar y estandarizar dashboards de EPA Digital. Invariantes
 al mantenerlo: `marketplace.json` tiene **una** entrada, el plugin tiene
 **6 skills** (`epa-frontend`, `epa-backend`, `epa-bq`, `epa-design`,
-`epa-deploy`, `epa-safe-vibe`) + 4 comandos + 1 agente + 1 hook en
-`hooks/` (raíz del plugin), y **este repo no hospeda paquetes npm** — si
+`epa-deploy`, `epa-safe-vibe`) + 4 comandos + 1 agente + `hooks/` (raíz
+del plugin) con dos piezas: el módulo de mods `register.ts` (guards de
+BigQuery, recursos protegidos, deploy y Tokyo, más `/epa-check`; requiere
+Claude Code ≥ 2.1.287) y `guard-cloud-deploy.sh` como respaldo para
+versiones sin mods. Validar los mods con `claude plugin test
+plugins/epa-dashboards`. **Este repo no hospeda paquetes npm** — si
 algún día el kit `@epa/*` de la plataforma de dashboards quiere vivir aquí,
 es una decisión deliberada del equipo, no una deriva. Validar siempre con
 `claude plugin validate .` antes de un PR.
@@ -181,7 +185,14 @@ contexto:
 | `epa-safe-vibe` | Guardrails de seguridad + hook de deploy |
 
 Más 4 comandos (`/plan-dashboard`, `/client-context`, `/critique-epa`,
-`/migrate-to-epa`) y el agente `security-reviewer`.
+`/migrate-to-epa`), el agente `security-reviewer` y los guards en mod
+(`hooks/register.ts`): bloquean `bq query` sin `--maximum_bytes_billed`
+(tope 100 GiB) o sin `LIMIT`, escrituras sobre recursos protegidos y
+`{cliente}_etl`, deploys fuera de `epa-turing`/`-vibe` y el MCP de Tokyo;
+piden confirmación, con el costo o la revisión viva en el diálogo de
+permiso, para queries de más de 10 GiB, deploys sobre un servicio
+existente y `ga360-250517`. El comando `/epa-check` revisa el repo sin
+gastar un turno.
 
 Instalación:
 ```

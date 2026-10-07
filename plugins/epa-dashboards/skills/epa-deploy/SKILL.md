@@ -376,6 +376,9 @@ El formato de `--set-secrets` es:
 EPA_{NOMBRE_VAR}={NombreSecret}:latest
 ```
 
+Cómo se crea el secreto, quién lo pide y cómo rotarlo:
+`epa-safe-vibe/references/secrets.md`.
+
 Si el contenedor ya tiene `--update-env-vars` en el mismo `--container`
 (como en el template de arriba), agregar `--set-secrets` en la misma línea
 no lo pisa — son grupos de banderas independientes. Lo que sí hay que
