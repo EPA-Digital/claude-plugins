@@ -45,7 +45,14 @@ Notas sobre este comando:
 
 ---
 
-## Por qué no hay auth en el salto `web` → `api`
+## Por qué no hay auth *de servicio* en el salto `web` → `api`
+
+> **Identidad del usuario ≠ auth entre servicios.** El salto no necesita ID
+> token de servicio (lo de abajo), pero **sí lleva la identidad del usuario**:
+> `web` reenvía tal cual el JWT de IAP (`X-Goog-IAP-JWT-Assertion`) y `api`
+> lo **verifica** (firma, `aud`, `hd`) antes de consultar `AccessUsers`. La
+> API nunca toma un correo de un header plano. Ver
+> `references/access-control.md`.
 
 Los contenedores de un mismo servicio de Cloud Run comparten el namespace
 de red de la instancia. `http://localhost:8081` **no es alcanzable desde

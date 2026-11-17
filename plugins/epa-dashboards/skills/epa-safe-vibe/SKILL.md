@@ -227,6 +227,9 @@ arquitectura** — ver `epa-backend`. Lo que sí sigue bloqueado:
 | Un ETL, job o pipeline propio dentro del dashboard | Escalar a datos@epa.digital — el dashboard no construye pipelines (ver `epa-frontend` regla 6) |
 | Compute Engine VM manual para el backend | Cloud Run — ver `epa-deploy` |
 | Secretos en `.env` commiteado | Secret Manager + `--set-secrets` en el `--container` que corresponda |
+| Login propio: contraseña compartida, token de sesión fijo, NextAuth/Firebase Auth/Auth.js | IAP + lista `AccessUsers` — ver `epa-frontend/references/auth.md` (Coppel: auditoría bloqueada por esto) |
+| "Abrirlo" para que lo vea el cliente (`allUsers`, `--allow-unauthenticated`) | `Acceso: externo` escalado a datos@epa.digital — nunca un servicio público |
+| Dar acceso a una persona con IAM (`run.invoker`, `iap.httpsResourceAccessor` por correo) | Alta en `AccessUsers` desde `/admin/accesos` — una sola lista |
 
 ### 🔴 B7 — Deploy de Cloud Run sobre un servicio existente (overwrite silencioso)
 

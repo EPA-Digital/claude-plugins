@@ -198,8 +198,9 @@ Backend          Go + gin, forkeado por dashboard de epa-standards-backend,
 Datos            TanStack Query en el navegador + Zod en el route handler
                  que hace fetch al backend Go
 Filtros/URL      nuqs
-Auth             @epa/auth (verificación JWT de IAP + getUser, en apps/web)
-                 — row filters se aplican en apps/api, no en @epa/auth
+Auth             IAP + AccessUsers: apps/web reenvía el JWT de IAP,
+                 apps/api lo verifica y autoriza (ver references/auth.md).
+                 Row filters, si hacen falta, también en apps/api
 Formateo         Prettier + prettier-plugin-tailwindcss
 Lint             ESLint flat + typescript-eslint strict-type-checked + reglas EPA
 Testing          Vitest + RTL (smoke) · Playwright en el kit

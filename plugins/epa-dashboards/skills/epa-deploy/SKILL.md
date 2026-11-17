@@ -78,7 +78,7 @@ contra `gcloud run deploy --help`, sección *Container Flags*, SDK 580.0.0):
 *"The following flags apply to a single container. If the `--container`
 flag is specified these flags may only be specified after a `--container`
 flag."* — es decir: `--project`, `--region`, `--service-account`,
-`--no-allow-unauthenticated`, `--min-instances`, `--max-instances` van
+`--no-allow-unauthenticated`, `--iap`, `--min-instances`, `--max-instances` van
 **antes** del primer `--container`; `--image`, `--port`, `--memory`,
 `--cpu`, `--depends-on`, `--startup-probe`, `--update-env-vars` van
 **después** del `--container` al que pertenecen. El comando completo, con
@@ -185,6 +185,37 @@ gcloud artifacts repositories create epa-containers \
 > 2. Nombre: `epa-containers`, Formato: **Docker**, Región: `us-central1` → **Crear**
 
 > ℹ️ Si `epa-containers` ya existe en el proyecto (alguien del equipo lo creó antes), omitir este paso.
+
+### 4. Acceso: IAP + lista de acceso (obligatorio)
+
+Ningún dashboard sale sin esto, ni siquiera uno interno: IAP deja pasar solo
+cuentas `@epa.digital`, y la lista `AccessUsers` del dashboard decide quién de
+EPA ve **este** dashboard. El código (verificar el JWT en `apps/api`, la
+puerta en `apps/web`) está en `epa-frontend/references/auth.md` y
+`epa-backend/references/access-control.md`.
+
+Revisa el `AGENTS.md` del dashboard (lo escribe `/plan-dashboard`):
+
+- **`Acceso: interno`** → corre el script **antes** del primer deploy y otra
+  vez **después**:
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/epa-deploy/scripts/setup-acceso.sh \
+    --service {cliente}-dashboard-vibe \
+    --runtime-sa {cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com \
+    --admin tu-correo@epa.digital
+  ```
+  La primera corrida crea la base de Firestore del dashboard, le da permiso a
+  la SA de runtime solo sobre esa base y crea al primer admin. La segunda
+  (con el servicio ya desplegado) activa IAP y le da acceso a
+  `domain:epa.digital`. Usa `--dry-run` para ver los comandos sin ejecutarlos.
+  Al final imprime las variables del contenedor `api` (`IAP_AUDIENCE`, etc.).
+- **`Acceso: externo`** (entra gente del cliente) → **no** uses el script:
+  escala a `datos@epa.digital`. Requiere Identity Platform y página de login
+  (precedente: `chedraui-dashboard`).
+
+> ⚠️ **Orden:** IAP nunca se enciende sobre una revisión que no exige la
+> lista. Por eso el script solo activa IAP cuando el servicio ya existe, y el
+> template de abajo despliega con `--iap` el mismo código que verifica.
 
 ---
 
@@ -303,6 +334,7 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --platform=managed \
             --no-allow-unauthenticated \
+            --iap \
             --service-account=${{ env.RUNTIME_SA }} \
             --min-instances=0 \
             --max-instances=10 \
@@ -316,7 +348,8 @@ jobs:
               --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_API }}:${{ github.sha }} \
               --cpu=1 --memory=512Mi \
               --startup-probe=httpGet.path=/health,httpGet.port=8081 \
-              --update-env-vars=PORT=8081,BQ_BILLING_PROJECT=epa-turing,BQ_DATA_PROJECT=bdd-epa-digital,BQ_DATASET={cliente}_reporting,BQ_MAX_BYTES_BILLED=104857600
+              --update-env-vars=PORT=8081,BQ_BILLING_PROJECT=epa-turing,BQ_DATA_PROJECT=bdd-epa-digital,BQ_DATASET={cliente}_reporting,BQ_MAX_BYTES_BILLED=104857600 \
+              --update-env-vars=AUTH_MODE=iap,IAP_AUDIENCE=/projects/689827400521/locations/us-central1/services/${{ env.SERVICE_NAME }},AUTH_ALLOWED_DOMAINS=epa.digital,FIRESTORE_PROJECT_ID=epa-turing,FIRESTORE_DATABASE_ID=${{ env.SERVICE_NAME }}
 
       - name: Mostrar URL del servicio
         run: |
@@ -340,17 +373,16 @@ jobs:
 >   set completo en vez de agregar.
 > - El contenedor `api` **nunca** lleva `--port`.
 
-> ⚠️ **Por qué `--no-allow-unauthenticated`:** un dashboard muestra datos
-> reales de campañas y presupuesto de un cliente. Hasta que exista el auth
-> real de la plataforma (IAP + Identity Platform, ver
-> `epa-frontend/references/auth.md`), el servicio **no es público en
-> internet**. Acceso interno vía `gcloud run services proxy` o dando
-> `roles/run.invoker` a personas/grupos específicos. Si el dashboard
-> necesita ser accesible por el cliente final HOY, escala a
-> datos@epa.digital antes de exponerlo — no cambies esta bandera a
-> `--allow-unauthenticated` por tu cuenta. Esto aplica al servicio completo
-> — el contenedor `api` va un paso más allá y ni siquiera tiene `--port`,
-> así que no depende solo de esta bandera para quedar fuera de internet.
+> ⚠️ **Por qué `--no-allow-unauthenticated` + `--iap`:** un dashboard
+> muestra datos reales de un cliente. `--no-allow-unauthenticated` deja el
+> servicio fuera de internet; `--iap` pone el login de Google delante (solo
+> `@epa.digital` en internos), y `apps/api` verifica ese login y lo compara
+> contra `AccessUsers`. Nunca `--allow-unauthenticated` ni `allUsers` como
+> invoker: es exactamente lo que dejó a Coppel bloqueado en su auditoría
+> (contraseña compartida + servicio público). Si el cliente necesita entrar,
+> el camino es `Acceso: externo` vía `datos@epa.digital`, no abrir el
+> servicio. El contenedor `api` va un paso más allá: no tiene `--port`, así
+> que no recibe tráfico de fuera aunque alguien cambie estas banderas.
 
 ---
 
@@ -466,7 +498,15 @@ AMBOS CONTENEDORES
 [ ] No hay credenciales en el código ni en ningún Dockerfile
 [ ] El .gitignore incluye .env*, *.key, *.json de service accounts
 [ ] El archivo github-actions-key.json fue borrado después de subirlo a GitHub
-[ ] El deploy usa --no-allow-unauthenticated (ver nota de auth arriba)
+[ ] El deploy usa --no-allow-unauthenticated Y --iap (ver nota de auth arriba)
+[ ] AGENTS.md dice `Acceso: interno` o `Acceso: externo`, y coincide con lo
+    desplegado (externo → aprobado por datos@epa.digital)
+[ ] setup-acceso.sh corrió (interno): base de Firestore {servicio},
+    datastore.user acotado, primer admin, IAP con domain:epa.digital
+[ ] El contenedor api tiene AUTH_MODE=iap, IAP_AUDIENCE de ESTE servicio y
+    AUTH_ALLOWED_DOMAINS — nunca AUTH_MODE=local
+[ ] Probé con una cuenta @epa.digital que NO está en AccessUsers: ve
+    "No tienes acceso" y /api/v1/* responde 403
 [ ] Corrí `pnpm dev` (apps/web) + `go run ./cmd/api` (apps/api) juntos en
     local y el dashboard carga datos reales
 
@@ -512,13 +552,36 @@ Fix:    1. Verificar que el Dockerfile tiene EXPOSE 8080
         3. Revisar los logs en Cloud Run: Consola GCP → Cloud Run → tu servicio → Logs
 ```
 
-### "No puedo abrir el dashboard en el navegador"
+### Google dice "You don't have access" (403 de IAP)
 ```
-Causa:  El servicio se desplegó con --no-allow-unauthenticated (correcto,
-        ver nota de arriba) y no tienes permiso de invocador
-Fix:    gcloud run services proxy {servicio} --project=epa-turing
-        región us-central1 — o pide a Datos e IA que te dé
-        roles/run.invoker si necesitas acceso recurrente
+Causa:  Tu cuenta no es @epa.digital, o setup-acceso.sh no ha corrido la
+        segunda vez (la que da roles/iap.httpsResourceAccessor)
+Fix:    Entrar con tu cuenta @epa.digital; si ya lo es, volver a correr
+        setup-acceso.sh con el servicio ya desplegado
+```
+
+### El dashboard muestra "No tienes acceso a este dashboard"
+```
+Causa:  IAP te dejó pasar, pero no estás en AccessUsers (o estás disabled).
+        Es el comportamiento correcto para quien no fue dado de alta.
+Fix:    Un admin te da de alta en /admin/accesos (o en la consola de
+        Firestore: base {servicio} → AccessUsers → documento = tu correo)
+```
+
+### Nadie entra, ni el admin ("No pudimos verificar tu sesión")
+```
+Causa:  La API no puede validar el JWT: IAP_AUDIENCE no es el de este
+        servicio, AUTH_ALLOWED_DOMAINS no incluye tu dominio, o el
+        servicio se está abriendo por la URL sin pasar por IAP
+Fix:    IAP_AUDIENCE = /projects/689827400521/locations/us-central1/services/{servicio}
+        (lo imprime setup-acceso.sh). Logs del contenedor api.
+```
+
+### El contenedor api no arranca: "config: AUTH_MODE=..."
+```
+Causa:  Configuración de acceso inválida — la API falla cerrado a propósito
+        (sin IAP_AUDIENCE, o AUTH_MODE=local en Cloud Run)
+Fix:    Corregir las variables del contenedor api; nunca AUTH_MODE=local
 ```
 
 ### Error: "Quota exceeded"

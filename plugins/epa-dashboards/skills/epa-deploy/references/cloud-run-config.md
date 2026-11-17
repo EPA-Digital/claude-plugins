@@ -35,39 +35,65 @@ sidecar suma su propio vCPU/memoria).
 
 ## Autenticación
 
-### Privada (default para dashboards — ver `epa-deploy/SKILL.md`)
+Todo dashboard: **IAP delante + lista `AccessUsers` en la API**. Patrón
+completo en `epa-frontend/references/auth.md` (por qué y el lado web) y
+`epa-backend/references/access-control.md` (verificación del JWT y lista).
+
+### Interno (solo `@epa.digital`) — el default
 
 ```bash
-gcloud run deploy {servicio} \
-  --no-allow-unauthenticated \
-  ...
-
-# Dar acceso a una persona o grupo específico
-gcloud run services add-iam-policy-binding {servicio} \
-  --member="user:persona@epa.digital" \
-  --role="roles/run.invoker" \
-  --region=us-central1
-
-# O a un grupo (más escalable para un equipo de cliente)
-gcloud run services add-iam-policy-binding {servicio} \
-  --member="group:cliente-team@epa.digital" \
-  --role="roles/run.invoker" \
-  --region=us-central1
+gcloud run deploy {servicio} --no-allow-unauthenticated --iap ...
 ```
 
-Acceso interno sin invocador dedicado: `gcloud run services proxy
-{servicio} --project=epa-turing --region=us-central1` abre un túnel local
-autenticado con tu propia identidad.
+Todo lo demás lo hace `epa-deploy/scripts/setup-acceso.sh` (idempotente,
+`--dry-run` para ver los comandos). Lo que corre, para referencia:
 
-### Pública (solo con autorización explícita de Datos e IA)
-
-Un dashboard **no** se despliega público por default — ver el porqué en
-`SKILL.md`. Si el caso de uso genuinamente lo requiere (ej. reporte para
-un cliente sin cuenta @epa.digital, mientras no exista IAP), confirmar con
-`datos@epa.digital` antes de cambiar la bandera:
 ```bash
-gcloud run deploy {servicio} --allow-unauthenticated ...
+# Base de Firestore propia del dashboard (guarda AccessUsers)
+gcloud firestore databases create --database={servicio} \
+  --location=us-central1 --type=firestore-native --project=epa-turing
+
+# La SA de runtime puede leer y escribir SOLO esa base
+gcloud projects add-iam-policy-binding epa-turing \
+  --member="serviceAccount:{cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com" \
+  --role="roles/datastore.user" \
+  --condition='expression=resource.name == "projects/epa-turing/databases/{servicio}",title=solo-{servicio}'
+
+# IAP: el agente de IAP invoca el servicio; solo domain:epa.digital pasa IAP
+gcloud beta services identity create --service=iap.googleapis.com --project=epa-turing
+gcloud run services update {servicio} --region=us-central1 --project=epa-turing --iap
+gcloud run services add-iam-policy-binding {servicio} --region=us-central1 --project=epa-turing \
+  --member="serviceAccount:service-689827400521@gcp-sa-iap.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+gcloud iap web add-iam-policy-binding --resource-type=cloud-run \
+  --service={servicio} --region=us-central1 --project=epa-turing \
+  --member="domain:epa.digital" --role="roles/iap.httpsResourceAccessor"
+
+# + el primer admin: documento AccessUsers/{correo} con role=admin, status=active
 ```
+
+`IAP_AUDIENCE` del contenedor `api` =
+`/projects/689827400521/locations/us-central1/services/{servicio}`.
+
+**Quién entra NO se maneja con IAM.** IAP deja pasar a todo `@epa.digital`;
+la lista de cada dashboard decide. No agregar personas a
+`iap.httpsResourceAccessor` ni a `run.invoker` una por una: serían dos listas
+que se desincronizan.
+
+### Externo (entra gente del cliente)
+
+Escalar a `datos@epa.digital` **antes** de exponer el dashboard. Requiere IAP
+con external identities + Identity Platform y una página de login propia
+(precedente: `chedraui-dashboard`, `apps/login` y `docs/auth-iap.md`). La lista
+`AccessUsers` y la API no cambian.
+
+### Nunca
+
+- `--allow-unauthenticated` o `allUsers` como invoker en el servicio del
+  dashboard (caso Coppel: auditoría bloqueada).
+- Contraseña compartida o login propio como sustituto de IAP.
+- `gcloud run services proxy` como forma de "dar acceso": sirve para depurar
+  con tu propia identidad, no para que alguien use el dashboard.
 
 ---
 
@@ -155,7 +181,7 @@ after a `--container` flag."*
 
 ```
 Service-level (ANTES del primer --container):
-  --project --region --service-account --no-allow-unauthenticated
+  --project --region --service-account --no-allow-unauthenticated --iap
   --min-instances --max-instances --labels --concurrency
 
 Container-scoped (DESPUÉS de su --container):
@@ -311,7 +337,8 @@ DEPLOY
 [ ] Service account dedicado por cliente, con permiso solo sobre su dataset
 [ ] Secrets vía --set-secrets, no --set-env-vars
 [ ] min-instances=0 salvo SLA justificado
-[ ] --no-allow-unauthenticated (ver auth.md para el porqué)
+[ ] --no-allow-unauthenticated + --iap (ver § Autenticación)
+[ ] setup-acceso.sh corrió (interno) o datos@epa.digital aprobó (externo)
 
 OBSERVABILIDAD
 [ ] Endpoint /api/health responde 200
@@ -320,7 +347,9 @@ OBSERVABILIDAD
 
 SEGURIDAD
 [ ] No hay credenciales en variables planas
-[ ] roles/run.invoker otorgado solo a quien debe ver este dashboard
+[ ] run.invoker solo para el agente de IAP; nada de allUsers
+[ ] Quién entra lo decide AccessUsers (no bindings de IAM por persona)
+[ ] apps/api verifica el JWT de IAP (IAP_AUDIENCE de este servicio, hd)
 [ ] Row filters de acceso a datos aplicados en el contenedor api (Go),
     antes de construir la query — no solo en la UI ni en el route handler
 [ ] apps/web no declara ningún cliente de BigQuery propio
