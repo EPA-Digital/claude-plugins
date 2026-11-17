@@ -168,8 +168,10 @@ y del plugin `epa-dashboards`.
   exacto en `package.json` — nunca hechas a mano. Subir esa versión es un
   cambio deliberado (`npm update` + revisar el release), no algo que pase
   por accidente.
-- Sin login propio — el acceso se restringe en capa de plataforma (ver
-  `references/auth.md`). No improvisar Firebase/NextAuth/tabla de usuarios.
+- Acceso: {interno|externo} — IAP + lista `AccessUsers` (base de Firestore
+  `{servicio}` en epa-turing), verificada en `apps/api`. Admin inicial:
+  {correo}. Ver `references/auth.md`. No improvisar login propio,
+  Firebase/NextAuth ni contraseñas compartidas.
 - Si el proyecto parece necesitar un ETL, un job programado o un segundo
   servicio de Cloud Run, escalar a datos@epa.digital — no construirlo aquí.
 
@@ -201,8 +203,15 @@ el contexto — no hace falta invocarlos por nombre salvo los comandos.
 
 ## Regla 8 — Auth
 
-Hoy ningún dashboard tiene login propio. El acceso se restringe en capa de
-plataforma (proxy autenticado / IAM invoker), no en la app — ver
-`references/auth.md` antes de escribir cualquier lógica de sesión. Si el
-proyecto necesita login de cliente final ahora, escalar a
-`datos@epa.digital`, no improvisar.
+Ningún dashboard tiene login propio, y todos tienen control de acceso:
+**IAP** (Google, solo `@epa.digital` en internos) delante del servicio, y la
+lista **`AccessUsers`** del dashboard, que `apps/api` revisa después de
+verificar el JWT de IAP. `apps/web` solo reenvía ese JWT (`fetchApi`) y
+muestra "Sin acceso" a quien no esté activo. Leer `references/auth.md` antes
+de tocar cualquier cosa de sesión o usuarios.
+
+- **Interno vs externo** se decide en `/plan-dashboard` y queda en el
+  `AGENTS.md` (`Acceso: interno|externo`). Externo (entra gente del cliente)
+  se escala a `datos@epa.digital`.
+- **Nunca:** contraseña compartida, NextAuth/Firebase Auth/Auth.js, servicio
+  público, ni tomar la identidad de algo que mande el navegador.

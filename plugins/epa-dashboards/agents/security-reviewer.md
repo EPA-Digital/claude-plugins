@@ -44,27 +44,44 @@ Busca patrones de credenciales hardcodeadas:
 - URLs de servicios privados (Cloud Run internos, endpoints sin auth
   pública) en código cliente.
 
-## 3. Auth en rutas
+## 3. Auth y control de acceso
 
-Hoy ningún dashboard tiene login propio — el acceso se controla en capa de
-plataforma (IAP/IAM invoker), no dentro del código de la aplicación (ver
-`epa-frontend/references/auth.md`). Por eso este chequeo NO es "¿llama a
-una función de sesión?" — es más específico, y aplica igual en los dos
-runtimes:
-- Cualquier route handler de `apps/web` (TypeScript) **o** handler de
-  `apps/api` (Go) que tome un identificador de cliente/cuenta (`clientId`,
-  `account`, `cliente`, etc.) de un **param de URL, body o query param** y
-  lo use directo en la query, **sin validarlo contra un valor esperado o
-  una lista de cuentas autorizadas** → severidad **alta** (crítico si
-  además hay evidencia de que devuelve datos de un cliente distinto al
-  esperado, ver sección 5). Sin login de por medio, esto es la superficie
-  real de fuga cross-cliente — el mismo defecto en un handler `.go` que en
-  un route handler `.ts` se reporta igual.
-- Si el proyecto SÍ tiene código de auth (adelantado a la Etapa 3 de
-  IAP/Identity Platform): rutas bajo `/admin` que verifiquen sesión pero
-  no rol → severidad alta.
-- No marques como hallazgo la ausencia de un login de usuario — hoy es el
-  estado esperado, no un defecto (ver `auth.md`).
+Todo dashboard tiene que tener **IAP + lista de acceso** (ver
+`epa-frontend/references/auth.md` y `epa-backend/references/access-control.md`).
+Revisar, en los dos runtimes:
+
+- **Crítico:**
+  - Login propio con contraseña compartida, token de sesión estático, o
+    NextAuth/Firebase Auth/Auth.js/Clerk en lugar de IAP (caso Coppel).
+  - `--allow-unauthenticated` o `allUsers` en el deploy (workflow,
+    `cloudbuild.yaml`, scripts, README).
+  - `AUTH_MODE=local` (o un `LocalVerifier`/`DEV_USER_EMAIL`) alcanzable en
+    producción: sin el chequeo de `K_SERVICE` / `NODE_ENV`.
+  - `apps/api` toma la identidad de un header plano (`X-EPA-User-Email` o
+    similar) o de un campo del body/query en vez de verificar el JWT de IAP.
+- **Alto:**
+  - La verificación del JWT no revisa `aud` (con `IAP_AUDIENCE` de este
+    servicio), `iss` o firma; o no revisa el dominio (`hd`) en un dashboard
+    `Acceso: interno`.
+  - Una ruta de datos de `/api/v1` registrada **antes** de `RequireAccess`, o
+    una ruta de admin sin `RequireAdmin`, o registrada después de la caché de
+    respuestas.
+  - `RequireAdmin` que usa el usuario cacheado en vez de releer el registro.
+  - Autoría de cambios (`updatedBy`, `createdBy`, "usuario actual") tomada del
+    request en vez de la identidad verificada.
+  - Un route handler de `apps/web` que llama a la API con `fetch` directo en
+    vez de `fetchApi` (llega sin identidad: síntoma de un handler que nunca se
+    probó, o de una API que no la exige).
+  - Cualquier handler (`.ts` o `.go`) que tome un identificador de
+    cliente/cuenta de un param, body o query y lo use en la query **sin
+    validarlo** contra una lista esperada → fuga cross-cliente (crítico si hay
+    evidencia de que devuelve datos de otro cliente, ver sección 5).
+- **Medio:**
+  - El `AGENTS.md` no dice `Acceso: interno|externo`, o lo que dice no
+    coincide con el deploy (p. ej. `interno` sin `AUTH_ALLOWED_DOMAINS`).
+  - Endpoints de máquina con un secreto que **falla abierto** cuando falta la
+    variable (`if secret != "" && ...`).
+  - Respuestas de `/api/v1` sin `Cache-Control: no-store`.
 
 ## Severidad — guía cuando la sección no la especifica
 

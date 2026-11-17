@@ -127,5 +127,10 @@ nunca con la fecha de hoy.
 - `references/bigquery-repository.md` — el slice `CampaignMetrics`
   completo, las 6 capas, código Go de referencia.
 - `references/sidecar.md` — el comando de deploy con dos `--container`,
-  por qué no hay auth en el salto `web`→`api`, dev local, troubleshooting.
+  por qué no hay auth de servicio en el salto `web`→`api`, dev local,
+  troubleshooting.
+- `references/access-control.md` — **obligatorio en todo dashboard**: verificar
+  el JWT de IAP en la API, la lista `AccessUsers` (Firestore), `RequireAccess`,
+  `RequireAdmin`, `GET /api/v1/me` y la administración de accesos. Código
+  completo y probado.
 - `references/fork-checklist.md` — procedimiento operativo de fork.
