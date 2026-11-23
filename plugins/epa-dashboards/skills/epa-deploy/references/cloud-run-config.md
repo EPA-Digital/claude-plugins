@@ -55,9 +55,11 @@ están `roles/iap.httpsResourceAccessor` para `domain:epa.digital` y
   `ACCESS_MODE=restringido` en la API.
 - El IAM del proyecto es amplio a propósito; el control que no depende de él es
   que `apps/api` verifique el JWT de IAP y aplique el modo.
-- ⚠️ **Pendiente de confirmar:** que un Editor pueda activar `--iap` en un
-  servicio sin permisos extra (prueba con `feeds-dashboard-vibe`). Mientras no
-  se confirme, no prometer "autoservicio completo".
+- ✅ **Confirmado (2026-11-23):** una identidad con **solo `roles/editor`**
+  (una SA temporal, no un owner) puede crear el servicio, crear la identidad
+  del agente de IAP y activar `--iap` sin permisos extra. El autoservicio es
+  completo para `interno`. **Activar IAP tarda ~3 min** (se midieron 164 s):
+  no interrumpir el comando ni asumir que se colgó.
 
 ### Interno (solo `@epa.digital`) — el default
 

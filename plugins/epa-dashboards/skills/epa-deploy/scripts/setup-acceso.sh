@@ -143,7 +143,7 @@ if [[ $DRY_RUN -eq 0 ]] && ! gcloud run services describe "$SERVICE" --region="$
   --project="$PROJECT" >/dev/null 2>&1; then
   info "5/6 y 6/6 El servicio ${SERVICE} todavía no existe: haz el primer deploy (con --iap) y vuelve a correr este script."
 else
-  info "5/6 Activando IAP en ${SERVICE} y run.invoker del agente de IAP"
+  info "5/6 Activando IAP en ${SERVICE} y run.invoker del agente de IAP (activar IAP tarda ~3 min: no lo interrumpas)"
   run gcloud beta services identity create --service=iap.googleapis.com --project="$PROJECT"
   run gcloud run services update "$SERVICE" --region="$REGION" --project="$PROJECT" --iap
   if project_has "serviceAccount:${IAP_AGENT}" "roles/run.invoker"; then
