@@ -13,16 +13,27 @@ navegador ──► IAP (Google)          AUTENTICA: ¿quién eres?
             apps/api (Go, sidecar)   VERIFICA el JWT (firma, aud, iss, dominio)
                │                     y AUTORIZA contra AccessUsers
                ▼
-            Firestore AccessUsers    quién entra a ESTE dashboard, con rol
+            Firestore AccessUsers    roles y bloqueos de ESTE dashboard
+                                     (en `restringido`, también quién entra)
 ```
 
 **Las dos capas son obligatorias**, también cuando solo entra gente de EPA:
 
-1. **IAP** deja pasar solo cuentas `@epa.digital` (`domain:epa.digital`). Corta
-   internet, pero no alcanza: las ~170 personas de la agencia verían datos de
-   cualquier cliente.
-2. **`AccessUsers`** decide quién de EPA (o del cliente) ve **este** dashboard.
-   Quien no tenga un registro `active` recibe 403 de la API y ve "Sin acceso".
+1. **IAP** autentica: deja pasar solo cuentas `@epa.digital`
+   (`domain:epa.digital`) y corta internet.
+2. **`apps/api`** autoriza según `ACCESS_MODE`. Política de EPA (nov 2026):
+   **nada interno está cerrado a menos que se declare.**
+   - **`interno`** — el estándar. Todo `@epa.digital` entra con lectura.
+     `AccessUsers` solo sirve para dar rol `admin` y para bloquear a una
+     persona concreta (`disabled`).
+   - **`restringido`** — excepción deliberada, con motivo y dueño en el
+     `AGENTS.md` (por ejemplo datos financieros de la agencia o de personas;
+     datos de medios de clientes no lo justifican). Aquí `AccessUsers` es la
+     puerta: sin un registro `active`, 403 y "Sin acceso".
+
+Cerrar un dashboard se hace **declarándolo** así, nunca dejando vacía la
+política de IAP: un servicio con IAP y nadie en `iap.httpsResourceAccessor` no
+es "restringido", es un dashboard roto que nadie sabe por qué no abre.
 
 **El JWT lo verifica `apps/api`, no `apps/web`.** La API no confía en ningún
 header plano: si un route handler se salta `fetchApi`, o si la API quedara
@@ -37,6 +48,8 @@ verificador, junto a los datos.
 
 Precedentes: `EPA-Digital/chedraui-dashboard` (en producción, verifica en web),
 `EPA-Digital/kcm-informe-interno` (verifica en la API, el modelo de esta guía).
+Ambos usan la lista como puerta de entrada, es decir, el comportamiento de
+`restringido`; el estándar para dashboards internos nuevos es `interno`.
 `EPA-Digital/coppel-dashboard` es el antipatrón: contraseña compartida y servicio
 público (auditoría 2026-10-12, bloqueado).
 
@@ -45,22 +58,33 @@ copiando de aquí, infraestructura 30 min con el script, pruebas 1 h).
 
 ---
 
-## 0. Interno o externo — se decide en el onboarding
+## 0. Interno, restringido o externo — se decide en el onboarding
 
 `/plan-dashboard` lo pregunta y lo escribe en el `AGENTS.md` del dashboard
-(`Acceso: interno` o `Acceso: externo`). Cambia la infraestructura, casi nada del
-código:
+(`Acceso: interno`, `Acceso: restringido` o `Acceso: externo`). `ACCESS_MODE`
+del contenedor `api` tiene que decir lo mismo. Cambia la infraestructura, casi
+nada del código:
 
-| | **Interno** (solo EPA) | **Externo** (entra gente del cliente) |
-|---|---|---|
-| IAP | Identidades de Google, `domain:epa.digital` | External identities + Identity Platform, o cliente OAuth propio |
-| Página de login | No | Sí (patrón `apps/login` de Chedraui) |
-| `AUTH_ALLOWED_DOMAINS` (api) | `epa.digital` | Dominios del cliente + `epa.digital`, o vacío |
-| Alta en `AccessUsers` | Manual, por un admin | Manual, por un admin |
-| Quién lo monta | Quien construye el dashboard, con `setup-acceso.sh` | **Escalar a `datos@epa.digital`** antes de exponerlo |
+| | **Interno** (estándar) | **Restringido** (excepción) | **Externo** (gente del cliente) |
+|---|---|---|---|
+| Quién ve datos | Todo `@epa.digital` | Solo con registro `active` | Quien se dé de alta |
+| `ACCESS_MODE` (api) | `interno` | `restringido` | `restringido` |
+| IAP | Identidades de Google, `domain:epa.digital` | Igual que interno (a nivel proyecto) | External identities + Identity Platform, o cliente OAuth propio |
+| Página de login | No | No | Sí (patrón `apps/login` de Chedraui) |
+| `AUTH_ALLOWED_DOMAINS` (api) | Exactamente `epa.digital` (si no, no arranca) | `epa.digital` | Dominios del cliente + `epa.digital`, o `*` |
+| Rol de `AccessUsers` | Admins y bloqueos | Puerta de entrada + roles | Puerta de entrada + roles |
+| Qué se declara en el `AGENTS.md` | Nada más | **Motivo y dueño** | Aprobación de Datos e IA |
+| Quién lo monta | Quien construye el dashboard, con `setup-acceso.sh --acceso interno` | Igual, con `--acceso restringido` | **Escalar a `datos@epa.digital`** antes de exponerlo |
 
-Pasar de interno a externo después no toca `AccessUsers`, la API ni este
-archivo: solo cambia la capa de IAP y `AUTH_ALLOWED_DOMAINS`.
+Como el IAP de dominio está concedido a nivel proyecto y IAM es aditivo,
+**restringir no se puede hacer en IAP**: se hace en la API, con la lista como
+puerta. Por eso `restringido` solo funciona si la API verifica el JWT y la lista
+(ya es obligatorio).
+
+Pasar de interno a otro modo **no es solo cambiar IAP y dominios**: `interno` se
+niega a arrancar con otro `AUTH_ALLOWED_DOMAINS`, para que gente del cliente no
+reciba lectura automática por un cambio a medias. Se cambia `ACCESS_MODE` a
+`restringido` y se da de alta a las personas.
 
 ---
 
@@ -74,8 +98,8 @@ Todas de servidor; **ninguna es `NEXT_PUBLIC_*`**.
 | `AUTH_SIGN_OUT_URL` | `/?gcp-iap-mode=CLEAR_LOGIN_COOKIE` | En externo: `/?gcp-iap-mode=GCIP_SIGNOUT` |
 | `DEV_USER_EMAIL` | `tu@epa.digital` | **Solo desarrollo.** Se ignora con `NODE_ENV=production` |
 
-Las de verificación (`IAP_AUDIENCE`, `AUTH_ALLOWED_DOMAINS`, `AUTH_MODE`) van en
-el contenedor `api`, no aquí.
+Las de verificación y autorización (`IAP_AUDIENCE`, `AUTH_ALLOWED_DOMAINS`,
+`AUTH_MODE`, `ACCESS_MODE`) van en el contenedor `api`, no aquí.
 
 ## 2. `src/lib/auth-forward.ts` — qué se reenvía a la API
 
@@ -149,12 +173,13 @@ const accessUserSchema = z.object({
   name: z.string().optional(),
   role: z.enum(["admin", "usuario"]),
   status: z.enum(["active", "disabled"]),
+  implicit: z.boolean().optional(), // true = sin registro, `usuario` por defecto (modo interno)
 });
 export type AccessUser = z.infer<typeof accessUserSchema>;
 
 export type Access =
   | { status: "ok"; user: AccessUser }
-  | { status: "forbidden" }        // sin alta o dado de baja
+  | { status: "forbidden" }        // dado de baja; en `restringido`, también sin alta
   | { status: "unauthenticated" }  // sin JWT válido
   | { status: "error" };
 
@@ -234,8 +259,10 @@ Componente de referencia: `apps/web/src/components/access-gate.tsx` de
 existen).
 
 > El layout es la puerta **visual**. La seguridad es que `apps/api` rechaza
-> toda llamada de datos de quien no esté `active`. Ocultar algo en la UI nunca
-> cuenta como control de acceso.
+> toda llamada de datos de quien no pase la política de `ACCESS_MODE`. Ocultar
+> algo en la UI nunca cuenta como control de acceso. En `interno`, `forbidden`
+> solo le llega a quien un admin dio de baja; el resto entra con el `usuario`
+> implícito y la UI **no** debe mostrar la sección de admin (`role !== "admin"`).
 
 ### Pantalla de accesos (solo admins)
 
@@ -254,15 +281,18 @@ EPA_API_BASE_URL=http://localhost:8081
 DEV_USER_EMAIL=tu@epa.digital
 ```
 
-Y `apps/api` con `AUTH_MODE=local`. Con `DATA_SOURCE=mock`, el repositorio mock
-de `AccessUsers` da `admin` a cualquier correo: no hace falta Firestore.
+Y `apps/api` con `AUTH_MODE=local` y `ACCESS_MODE=interno` (o `restringido`,
+según el `AGENTS.md`; sin ella la API no arranca). Con `DATA_SOURCE=mock`, el
+repositorio mock de `AccessUsers` da `admin` a cualquier correo: no hace falta
+Firestore.
 
 ## 7. Tests mínimos (Vitest)
 
 - `identityHeaders`: copia el JWT; con `NODE_ENV=production` **nunca** agrega
   `x-dev-user-email` aunque `DEV_USER_EMAIL` esté puesto.
 - `getAccess`: 401 → `unauthenticated`, 403 → `forbidden`, `disabled` →
-  `forbidden`, cuerpo con otra forma → `error`.
+  `forbidden`, usuario implícito (`implicit: true`) → `ok`, cuerpo con otra
+  forma → `error`.
 - `proxy`: sin JWT en producción → 401.
 
 ---

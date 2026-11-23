@@ -186,36 +186,44 @@ gcloud artifacts repositories create epa-containers \
 
 > ℹ️ Si `epa-containers` ya existe en el proyecto (alguien del equipo lo creó antes), omitir este paso.
 
-### 4. Acceso: IAP + lista de acceso (obligatorio)
+### 4. Acceso: IAP + `ACCESS_MODE` (obligatorio)
 
 Ningún dashboard sale sin esto, ni siquiera uno interno: IAP deja pasar solo
-cuentas `@epa.digital`, y la lista `AccessUsers` del dashboard decide quién de
-EPA ve **este** dashboard. El código (verificar el JWT en `apps/api`, la
-puerta en `apps/web`) está en `epa-frontend/references/auth.md` y
-`epa-backend/references/access-control.md`.
+cuentas `@epa.digital`, y `apps/api` autoriza según `ACCESS_MODE`. Política de
+EPA (nov 2026): **nada interno está cerrado a menos que se declare.** El
+estándar es `interno` (todo EPA entra con lectura; la lista `AccessUsers` solo
+da admins y bloqueos); `restringido` es una excepción con motivo y dueño. El
+código (verificar el JWT en `apps/api`, la puerta en `apps/web`) está en
+`epa-frontend/references/auth.md` y `epa-backend/references/access-control.md`.
 
 Revisa el `AGENTS.md` del dashboard (lo escribe `/plan-dashboard`):
 
-- **`Acceso: interno`** → corre el script **antes** del primer deploy y otra
-  vez **después**:
+- **`Acceso: interno`** o **`Acceso: restringido`** → corre el script **antes**
+  del primer deploy y otra vez **después**, con `--acceso` igual a lo que dice
+  el `AGENTS.md`:
   ```bash
   bash ${CLAUDE_PLUGIN_ROOT}/skills/epa-deploy/scripts/setup-acceso.sh \
     --service {cliente}-dashboard-vibe \
     --runtime-sa {cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com \
-    --admin tu-correo@epa.digital
+    --admin tu-correo@epa.digital \
+    --acceso interno   # o restringido
   ```
   La primera corrida crea la base de Firestore del dashboard, le da permiso a
   la SA de runtime solo sobre esa base y crea al primer admin. La segunda
-  (con el servicio ya desplegado) activa IAP y le da acceso a
-  `domain:epa.digital`. Usa `--dry-run` para ver los comandos sin ejecutarlos.
-  Al final imprime las variables del contenedor `api` (`IAP_AUDIENCE`, etc.).
+  (con el servicio ya desplegado) activa IAP; los bindings de IAP por servicio
+  solo se crean si no existen ya a nivel proyecto (en `epa-turing` ya
+  existen). Usa `--dry-run` para ver los comandos sin ejecutarlos. Al final
+  imprime las variables del contenedor `api` (`ACCESS_MODE`, `IAP_AUDIENCE`,
+  etc.): `ACCESS_MODE` es obligatoria y sin ella la API no arranca.
+- **`Acceso: restringido`** además exige, en el `AGENTS.md`, el **motivo** y el
+  **dueño** (ver `references/cloud-run-config.md` § Restringido).
 - **`Acceso: externo`** (entra gente del cliente) → **no** uses el script:
   escala a `datos@epa.digital`. Requiere Identity Platform y página de login
   (precedente: `chedraui-dashboard`).
 
-> ⚠️ **Orden:** IAP nunca se enciende sobre una revisión que no exige la
-> lista. Por eso el script solo activa IAP cuando el servicio ya existe, y el
-> template de abajo despliega con `--iap` el mismo código que verifica.
+> ⚠️ **Orden:** IAP nunca se enciende sobre una revisión que no aplica la
+> política. Por eso el script solo activa IAP cuando el servicio ya existe, y
+> el template de abajo despliega con `--iap` el mismo código que verifica.
 
 ---
 
@@ -499,14 +507,17 @@ AMBOS CONTENEDORES
 [ ] El .gitignore incluye .env*, *.key, *.json de service accounts
 [ ] El archivo github-actions-key.json fue borrado después de subirlo a GitHub
 [ ] El deploy usa --no-allow-unauthenticated Y --iap (ver nota de auth arriba)
-[ ] AGENTS.md dice `Acceso: interno` o `Acceso: externo`, y coincide con lo
-    desplegado (externo → aprobado por datos@epa.digital)
-[ ] setup-acceso.sh corrió (interno): base de Firestore {servicio},
-    datastore.user acotado, primer admin, IAP con domain:epa.digital
-[ ] El contenedor api tiene AUTH_MODE=iap, IAP_AUDIENCE de ESTE servicio y
-    AUTH_ALLOWED_DOMAINS — nunca AUTH_MODE=local
-[ ] Probé con una cuenta @epa.digital que NO está en AccessUsers: ve
-    "No tienes acceso" y /api/v1/* responde 403
+[ ] AGENTS.md dice `Acceso: interno`, `restringido` o `externo`, y coincide con
+    lo desplegado (restringido → motivo y dueño; externo → aprobado por
+    datos@epa.digital)
+[ ] setup-acceso.sh corrió (interno o restringido): base de Firestore
+    {servicio}, datastore.user acotado, primer admin, IAP activado
+[ ] El contenedor api tiene AUTH_MODE=iap, ACCESS_MODE igual al AGENTS.md,
+    IAP_AUDIENCE de ESTE servicio y AUTH_ALLOWED_DOMAINS — nunca
+    AUTH_MODE=local
+[ ] Probé con una cuenta @epa.digital que NO está en AccessUsers:
+    · interno → entra en solo lectura y /api/v1/admin/* responde 403
+    · restringido → ve "No tienes acceso" y /api/v1/* responde 403
 [ ] Corrí `pnpm dev` (apps/web) + `go run ./cmd/api` (apps/api) juntos en
     local y el dashboard carga datos reales
 

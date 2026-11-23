@@ -25,12 +25,22 @@ si no se confirmó.
 
 1. **Cliente y nombre del dashboard** (si no vino en `$1`, o para confirmar
    el nombre corto que se usará en `docs/dashboard-spec.md`).
-2. **¿Quién va a entrar: solo gente de EPA, o también gente del cliente?**
-   Es la decisión que más cambia el proyecto:
-   - **Solo EPA (`Acceso: interno`)** — Google deja pasar solo cuentas
-     `@epa.digital` y la lista del dashboard decide quién de EPA lo ve. Lo
-     monta quien construye el dashboard, con
-     `epa-deploy/scripts/setup-acceso.sh` (~30 min).
+2. **¿Quién va a entrar: toda la agencia, un grupo cerrado de EPA, o también
+   gente del cliente?** Es la decisión que más cambia el proyecto. Política de
+   EPA: **nada interno está cerrado a menos que se declare**, así que la
+   primera opción es el default y no pide justificación:
+   - **Toda la agencia (`Acceso: interno`, el default)** — Google deja pasar
+     solo cuentas `@epa.digital` y todas entran con lectura; la lista del
+     dashboard solo nombra admins y bloquea a alguien concreto. Lo monta quien
+     construye el dashboard, con `epa-deploy/scripts/setup-acceso.sh --acceso
+     interno` (~30 min).
+   - **Un grupo cerrado de EPA (`Acceso: restringido`)** — solo para datos que
+     de verdad no debe ver toda la agencia (financieros internos, de
+     personas; los datos de medios de clientes **no** lo justifican). Pide
+     **motivo y dueño**, que se escriben en el `AGENTS.md`. Aquí la lista es la
+     puerta de entrada. Mismo script, con `--acceso restringido`.
+     Si el usuario elige esta opción, pregunta el motivo y el dueño antes de
+     seguir; si no los hay, vuelve a `interno`.
    - **También el cliente (`Acceso: externo`)** — hace falta login para
      cuentas que no son de EPA (Microsoft, correo y contraseña). **Se escala a
      `datos@epa.digital` antes de construir**; precedente: Chedraui. Nunca se
@@ -49,9 +59,9 @@ si no se confirmó.
    Bing, DV360 — las que apliquen).
 5. **Admin inicial y roles:** el correo `@epa.digital` de quien administra
    los accesos (lo crea `setup-acceso.sh`). Los roles son dos, `admin` (da
-   altas y bajas) y `usuario` (solo ve); si piden más, o que cada quien vea
-   solo ciertas cuentas, anótalo como riesgo: son filtros por fila en
-   `apps/api`.
+   altas y bajas) y `usuario` (solo ve; en `interno` es el que recibe por
+   defecto todo `@epa.digital`); si piden más, o que cada quien vea solo
+   ciertas cuentas, anótalo como riesgo: son filtros por fila en `apps/api`.
 
 Espera las respuestas completas antes de seguir.
 
@@ -96,9 +106,10 @@ Estructura:
 - Filtros: ...
 
 ## Usuarios y acceso
-- Acceso: interno | externo
+- Acceso: interno | restringido | externo
+- (si restringido) Motivo: {por qué} · Dueño: {correo}@epa.digital
 - Admin inicial: {correo}@epa.digital
-- Roles: admin (altas y bajas) · usuario (solo ve)
+- Roles: admin (altas y bajas) · usuario (solo ve; en interno, todo EPA)
 - Filtros por fila: (ninguno | qué cuentas ve quién — se aplican en apps/api)
 
 ## Pendientes / riesgos
@@ -112,14 +123,19 @@ Agrega (o actualiza) en el `AGENTS.md` del dashboard, en "Reglas del
 proyecto":
 
 ```
-- Acceso: interno — IAP (solo @epa.digital) + lista AccessUsers en la base
-  de Firestore {servicio} de epa-turing. Admin inicial: {correo}.
-  Ver epa-frontend/references/auth.md.
+- Acceso: interno — IAP (solo @epa.digital); todo EPA entra con lectura
+  (ACCESS_MODE=interno). La lista AccessUsers, en la base de Firestore
+  {servicio} de epa-turing, solo nombra admins y bloquea personas.
+  Admin inicial: {correo}. Ver epa-frontend/references/auth.md.
 ```
 
-(o `Acceso: externo — escalado a datos@epa.digital el {fecha}`). Las skills y
-`security-reviewer` leen esta línea para saber qué revisar; no la dejes
-implícita. Si más adelante cambia el despliegue, se cambia aquí también.
+(o, excepción deliberada:
+`Acceso: restringido — motivo: {por qué}. Dueño: {correo}@epa.digital.`
+con `ACCESS_MODE=restringido`, donde la lista es la puerta de entrada; o
+`Acceso: externo — escalado a datos@epa.digital el {fecha}`). Las skills y
+`security-reviewer` leen esta línea para saber qué revisar, y `ACCESS_MODE` del
+contenedor `api` debe decir lo mismo; no la dejes implícita. Si más adelante
+cambia el despliegue, se cambia aquí también.
 
 ## Paso 4 — Cerrar sin empezar a codear
 

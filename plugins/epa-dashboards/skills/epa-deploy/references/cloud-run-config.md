@@ -35,9 +35,29 @@ sidecar suma su propio vCPU/memoria).
 
 ## Autenticación
 
-Todo dashboard: **IAP delante + lista `AccessUsers` en la API**. Patrón
-completo en `epa-frontend/references/auth.md` (por qué y el lado web) y
-`epa-backend/references/access-control.md` (verificación del JWT y lista).
+Todo dashboard: **IAP delante + autorización en la API según `ACCESS_MODE`**.
+Patrón completo en `epa-frontend/references/auth.md` (por qué y el lado web) y
+`epa-backend/references/access-control.md` (verificación del JWT y modos).
+
+**Política (nov 2026): nada interno está cerrado a menos que se declare.** El
+estándar es `interno` (todo `@epa.digital` entra con lectura); `restringido` es
+una excepción con motivo y dueño en el `AGENTS.md`.
+
+**Estado real de `epa-turing` (verificado el 2026-11-23).** A nivel proyecto ya
+están `roles/iap.httpsResourceAccessor` para `domain:epa.digital` y
+`roles/run.invoker` para el agente de IAP. Además `all@epa.digital` es Editor,
+`run.invoker` y `bigquery.jobUser`. Consecuencias:
+
+- El binding de IAP **por servicio ya no hace falta**; `setup-acceso.sh` lo
+  detecta y lo salta (solo lo crea si el de proyecto no existe, y entonces
+  requiere `setIamPolicy`: pedírselo a Datos e IA).
+- IAM es aditivo: **un servicio no se puede restringir en IAP**. Restringir es
+  `ACCESS_MODE=restringido` en la API.
+- El IAM del proyecto es amplio a propósito; el control que no depende de él es
+  que `apps/api` verifique el JWT de IAP y aplique el modo.
+- ⚠️ **Pendiente de confirmar:** que un Editor pueda activar `--iap` en un
+  servicio sin permisos extra (prueba con `feeds-dashboard-vibe`). Mientras no
+  se confirme, no prometer "autoservicio completo".
 
 ### Interno (solo `@epa.digital`) — el default
 
@@ -45,8 +65,8 @@ completo en `epa-frontend/references/auth.md` (por qué y el lado web) y
 gcloud run deploy {servicio} --no-allow-unauthenticated --iap ...
 ```
 
-Todo lo demás lo hace `epa-deploy/scripts/setup-acceso.sh` (idempotente,
-`--dry-run` para ver los comandos). Lo que corre, para referencia:
+Todo lo demás lo hace `epa-deploy/scripts/setup-acceso.sh --acceso interno`
+(idempotente, `--dry-run` para ver los comandos). Lo que corre, para referencia:
 
 ```bash
 # Base de Firestore propia del dashboard (guarda AccessUsers)
@@ -59,9 +79,12 @@ gcloud projects add-iam-policy-binding epa-turing \
   --role="roles/datastore.user" \
   --condition='expression=resource.name == "projects/epa-turing/databases/{servicio}",title=solo-{servicio}'
 
-# IAP: el agente de IAP invoca el servicio; solo domain:epa.digital pasa IAP
+# IAP
 gcloud beta services identity create --service=iap.googleapis.com --project=epa-turing
 gcloud run services update {servicio} --region=us-central1 --project=epa-turing --iap
+
+# SOLO si NO existen a nivel proyecto (hoy sí existen; el script lo comprueba
+# con `gcloud projects get-iam-policy`). Requieren setIamPolicy.
 gcloud run services add-iam-policy-binding {servicio} --region=us-central1 --project=epa-turing \
   --member="serviceAccount:service-689827400521@gcp-sa-iap.iam.gserviceaccount.com" \
   --role="roles/run.invoker"
@@ -74,24 +97,44 @@ gcloud iap web add-iam-policy-binding --resource-type=cloud-run \
 
 `IAP_AUDIENCE` del contenedor `api` =
 `/projects/689827400521/locations/us-central1/services/{servicio}`.
+`ACCESS_MODE` del contenedor `api` = `interno` (obligatoria; sin ella no
+arranca, y `interno` solo arranca con `AUTH_ALLOWED_DOMAINS=epa.digital`).
 
-**Quién entra NO se maneja con IAM.** IAP deja pasar a todo `@epa.digital`;
-la lista de cada dashboard decide. No agregar personas a
-`iap.httpsResourceAccessor` ni a `run.invoker` una por una: serían dos listas
-que se desincronizan.
+**Quién entra NO se maneja con IAM.** IAP deja pasar a todo `@epa.digital` y en
+`interno` la API da lectura a todos; la lista de `AccessUsers` solo da admins y
+bloqueos. No agregar personas a `iap.httpsResourceAccessor` ni a `run.invoker`
+una por una: serían dos listas que se desincronizan.
+
+### Restringido (excepción deliberada)
+
+Para datos que de verdad no debe ver toda la agencia (financieros internos,
+de personas). Hay que **declararlo** en el `AGENTS.md`:
+
+```
+- Acceso: restringido — motivo: {por qué}. Dueño: {correo}@epa.digital.
+```
+
+Se monta igual que interno, con `setup-acceso.sh --acceso restringido`, que
+imprime `ACCESS_MODE=restringido`. Ahí `AccessUsers` es la puerta: sin registro
+`active`, la API responde 403. **Nunca** se "cierra" dejando IAP activado con la
+política vacía: eso no es restringir, es dejar un dashboard roto sin dueño.
 
 ### Externo (entra gente del cliente)
 
 Escalar a `datos@epa.digital` **antes** de exponer el dashboard. Requiere IAP
 con external identities + Identity Platform y una página de login propia
-(precedente: `chedraui-dashboard`, `apps/login` y `docs/auth-iap.md`). La lista
-`AccessUsers` y la API no cambian.
+(precedente: `chedraui-dashboard`, `apps/login` y `docs/auth-iap.md`). La API
+corre con `ACCESS_MODE=restringido` (la lista es la puerta); `interno` no
+arranca con dominios de clientes.
 
 ### Nunca
 
 - `--allow-unauthenticated` o `allUsers` como invoker en el servicio del
   dashboard (caso Coppel: auditoría bloqueada).
 - Contraseña compartida o login propio como sustituto de IAP.
+- IAP activado con la política vacía como forma de "cerrar" un servicio
+  (caso `kcm-dashboard-vibe`, nov 2026): cerrar es `Acceso: restringido`,
+  declarado.
 - `gcloud run services proxy` como forma de "dar acceso": sirve para depurar
   con tu propia identidad, no para que alguien use el dashboard.
 
@@ -338,7 +381,7 @@ DEPLOY
 [ ] Secrets vía --set-secrets, no --set-env-vars
 [ ] min-instances=0 salvo SLA justificado
 [ ] --no-allow-unauthenticated + --iap (ver § Autenticación)
-[ ] setup-acceso.sh corrió (interno) o datos@epa.digital aprobó (externo)
+[ ] setup-acceso.sh corrió (interno o restringido) o datos@epa.digital aprobó (externo)
 
 OBSERVABILIDAD
 [ ] Endpoint /api/health responde 200
@@ -347,8 +390,12 @@ OBSERVABILIDAD
 
 SEGURIDAD
 [ ] No hay credenciales en variables planas
-[ ] run.invoker solo para el agente de IAP; nada de allUsers
-[ ] Quién entra lo decide AccessUsers (no bindings de IAM por persona)
+[ ] Nada de allUsers ni allAuthenticatedUsers como invoker del servicio
+    (all@epa.digital a nivel proyecto es lo esperado)
+[ ] ACCESS_MODE declarado y igual a la línea `Acceso:` del AGENTS.md; sin
+    bindings de IAM por persona; `restringido` con motivo y dueño
+[ ] Si IAP está activado, alguien puede pasar (binding de proyecto o de
+    servicio): nunca IAP activado con política vacía
 [ ] apps/api verifica el JWT de IAP (IAP_AUDIENCE de este servicio, hd)
 [ ] Row filters de acceso a datos aplicados en el contenedor api (Go),
     antes de construir la query — no solo en la UI ni en el route handler

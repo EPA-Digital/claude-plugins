@@ -168,10 +168,11 @@ y del plugin `epa-dashboards`.
   exacto en `package.json` — nunca hechas a mano. Subir esa versión es un
   cambio deliberado (`npm update` + revisar el release), no algo que pase
   por accidente.
-- Acceso: {interno|externo} — IAP + lista `AccessUsers` (base de Firestore
-  `{servicio}` en epa-turing), verificada en `apps/api`. Admin inicial:
-  {correo}. Ver `references/auth.md`. No improvisar login propio,
-  Firebase/NextAuth ni contraseñas compartidas.
+- Acceso: {interno|restringido|externo} — IAP + `ACCESS_MODE` en `apps/api`
+  (`interno`: todo @epa.digital con lectura; `restringido`: solo quien esté
+  en `AccessUsers`, con motivo y dueño aquí). Base de Firestore `{servicio}`
+  en epa-turing. Admin inicial: {correo}. Ver `references/auth.md`. No
+  improvisar login propio, Firebase/NextAuth ni contraseñas compartidas.
 - Si el proyecto parece necesitar un ETL, un job programado o un segundo
   servicio de Cloud Run, escalar a datos@epa.digital — no construirlo aquí.
 
@@ -204,14 +205,16 @@ el contexto — no hace falta invocarlos por nombre salvo los comandos.
 ## Regla 8 — Auth
 
 Ningún dashboard tiene login propio, y todos tienen control de acceso:
-**IAP** (Google, solo `@epa.digital` en internos) delante del servicio, y la
-lista **`AccessUsers`** del dashboard, que `apps/api` revisa después de
-verificar el JWT de IAP. `apps/web` solo reenvía ese JWT (`fetchApi`) y
-muestra "Sin acceso" a quien no esté activo. Leer `references/auth.md` antes
-de tocar cualquier cosa de sesión o usuarios.
+**IAP** (Google, solo `@epa.digital` en internos) delante del servicio, y
+`apps/api` que, después de verificar el JWT de IAP, autoriza según
+`ACCESS_MODE` y la lista **`AccessUsers`** del dashboard. `apps/web` solo
+reenvía ese JWT (`fetchApi`) y muestra "Sin acceso" a quien la API rechace.
+Leer `references/auth.md` antes de tocar cualquier cosa de sesión o usuarios.
 
-- **Interno vs externo** se decide en `/plan-dashboard` y queda en el
-  `AGENTS.md` (`Acceso: interno|externo`). Externo (entra gente del cliente)
-  se escala a `datos@epa.digital`.
+- **Interno, restringido o externo** se decide en `/plan-dashboard` y queda en
+  el `AGENTS.md` (`Acceso: interno|restringido|externo`). Política de EPA:
+  nada interno está cerrado salvo que se declare, así que `interno` es el
+  default; `restringido` pide motivo y dueño. Externo (entra gente del
+  cliente) se escala a `datos@epa.digital`.
 - **Nunca:** contraseña compartida, NextAuth/Firebase Auth/Auth.js, servicio
   público, ni tomar la identidad de algo que mande el navegador.
