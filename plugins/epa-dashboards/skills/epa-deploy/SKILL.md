@@ -357,7 +357,9 @@ jobs:
               --cpu=1 --memory=512Mi \
               --startup-probe=httpGet.path=/health,httpGet.port=8081 \
               --update-env-vars=PORT=8081,BQ_BILLING_PROJECT=epa-turing,BQ_DATA_PROJECT=bdd-epa-digital,BQ_DATASET={cliente}_reporting,BQ_MAX_BYTES_BILLED=104857600 \
-              --update-env-vars=AUTH_MODE=iap,IAP_AUDIENCE=/projects/689827400521/locations/us-central1/services/${{ env.SERVICE_NAME }},AUTH_ALLOWED_DOMAINS=epa.digital,FIRESTORE_PROJECT_ID=epa-turing,FIRESTORE_DATABASE_ID=${{ env.SERVICE_NAME }}
+              --update-env-vars=AUTH_MODE=iap,ACCESS_MODE=interno,IAP_AUDIENCE=/projects/689827400521/locations/us-central1/services/${{ env.SERVICE_NAME }},AUTH_ALLOWED_DOMAINS=epa.digital,FIRESTORE_PROJECT_ID=epa-turing,FIRESTORE_DATABASE_ID=${{ env.SERVICE_NAME }}
+              # ⚠️ ACCESS_MODE debe decir lo mismo que `Acceso:` en el AGENTS.md
+              # (interno | restringido). Sin ella la API no arranca.
 
       - name: Mostrar URL del servicio
         run: |
@@ -591,8 +593,12 @@ Fix:    IAP_AUDIENCE = /projects/689827400521/locations/us-central1/services/{se
 ### El contenedor api no arranca: "config: AUTH_MODE=..."
 ```
 Causa:  Configuración de acceso inválida — la API falla cerrado a propósito
-        (sin IAP_AUDIENCE, o AUTH_MODE=local en Cloud Run)
-Fix:    Corregir las variables del contenedor api; nunca AUTH_MODE=local
+        (sin IAP_AUDIENCE; sin ACCESS_MODE o con un valor que no es
+        'interno' | 'restringido'; ACCESS_MODE=interno con
+        AUTH_ALLOWED_DOMAINS distinto de epa.digital; o AUTH_MODE=local en
+        Cloud Run)
+Fix:    Corregir las variables del contenedor api (ACCESS_MODE igual al
+        AGENTS.md); nunca AUTH_MODE=local
 ```
 
 ### Error: "Quota exceeded"
