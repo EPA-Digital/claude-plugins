@@ -112,8 +112,9 @@ dashboard; solo se cumplen dos condiciones, y la plataforma las exige:
 
 - el repo está en la org **`EPA-Digital`** y su nombre **termina en
   `-dashboard`** (`feeds-dashboard`, `chedraui-dashboard`…);
-- el deploy corre desde la rama **`main`** (el template ya dispara en `push` a
-  `main`).
+- el deploy corre desde la rama **`main`** y solo con los eventos `push` o
+  `workflow_dispatch` (el template ya dispara así; un `pull_request` o un
+  `pull_request_target` no obtiene credenciales).
 
 La infraestructura (pool, provider y SA) se crea **una sola vez para toda la
 plataforma** con `epa-deploy/scripts/setup-wif.sh`, que corre alguien con

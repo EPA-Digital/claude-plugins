@@ -18,6 +18,14 @@
 # run.developer NO incluye setIamPolicy: la SA no puede cambiar el IAM de un
 # servicio, o sea, no puede exponerlo al público.
 #
+# RIESGO ACEPTADO (decisión de Datos e IA, 2026-11-23): serviceAccountUser a nivel
+# proyecto permite desplegar un servicio que corra como CUALQUIER SA del proyecto, y
+# run.developer permite actualizar CUALQUIER servicio (incluidos los protegidos). Es lo
+# que `all@epa.digital` ya puede hacer como Editor, y no se puede acotar por IAM (las
+# condiciones por nombre no funcionan con Cloud Run vía gcloud). La alternativa, un
+# binding por dashboard hecho por Datos, se descartó por el trámite. Lo que sí cambia:
+# no hay llave de larga vida, y solo entra código de la rama main de un *-dashboard.
+#
 # Uso:
 #   bash setup-wif.sh [--dry-run]
 #
@@ -39,14 +47,23 @@ BRANCH="refs/heads/main"
 AR_REPO="epa-containers"
 ISSUER="https://token.actions.githubusercontent.com"
 
+# ID numérico (inmutable) de la org: `gh api orgs/EPA-Digital --jq .id`. El nombre
+# de una org puede cambiar o reasignarse; el ID no. Si está mal, falla CERRADO
+# (nadie entra), nunca abierto.
+OWNER_ID="171056081"
+
 # La condición del provider: lo único que decide qué repos pueden entrar.
-CONDITION="assertion.repository_owner == '${OWNER}' && assertion.repository.endsWith('${SUFFIX}') && assertion.ref == '${BRANCH}'"
+#  - org por nombre E ID inmutable;
+#  - repo que termina en -dashboard (decisión: patrón por nombre, sin trámite por repo);
+#  - rama main, y solo eventos push / workflow_dispatch: un workflow disparado por
+#    pull_request_target corre con ref=main aunque el código venga de un fork o PR.
+CONDITION="assertion.repository_owner == '${OWNER}' && assertion.repository_owner_id == '${OWNER_ID}' && assertion.repository.endsWith('${SUFFIX}') && assertion.ref == '${BRANCH}' && assertion.event_name in ['push', 'workflow_dispatch']"
 MAPPING="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner,attribute.ref=assertion.ref"
 POOL_MEMBER="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/*"
 PROVIDER_NAME="projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/providers/${PROVIDER}"
 
 DRY_RUN=0
-usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 die() { echo "🔴 $*" >&2; exit 1; }
 info() { echo "▶ $*"; }
 run() { echo "  \$ $*"; if [[ $DRY_RUN -eq 0 ]]; then "$@"; fi; }
@@ -132,8 +149,9 @@ cat <<EOF
        workload_identity_provider: ${PROVIDER_NAME}
        service_account: ${SA}
 
-Quién puede entrar: repos de ${OWNER} que terminen en '${SUFFIX}', desde ${BRANCH}.
-Quién NO: cualquier otro repo, otra rama o un pull request.
+Quién puede entrar: repos de ${OWNER} (id ${OWNER_ID}) que terminen en '${SUFFIX}', desde
+${BRANCH}, solo con eventos push o workflow_dispatch.
+Quién NO: cualquier otro repo, otra rama, un pull request ni pull_request_target.
 Pendiente aparte (no lo hace este script): borrar las llaves JSON y los secretos
 GCP_SA_KEY de los dashboards que aún los usan, y revisar el alcance de las SAs
 de deploy anteriores (audit-os-github-deployer, github-actions-deployer…).
