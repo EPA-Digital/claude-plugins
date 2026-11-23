@@ -8,8 +8,19 @@ request a `/api/v1/*`:
    de IAP y el dominio (`hd`). `apps/web` solo lo reenvía (ver
    `epa-frontend/references/auth.md`). **Ningún header plano se toma como
    identidad.**
-2. **Autoriza:** busca el correo en la colección `AccessUsers` de la base de
-   Firestore **propia del dashboard**. Solo `status: "active"` pasa.
+2. **Autoriza** según `ACCESS_MODE`, que **se declara siempre** (sin valor por
+   defecto: si falta, el servidor no arranca) y debe coincidir con la línea
+   `Acceso:` del `AGENTS.md`:
+
+   | `ACCESS_MODE` | Quién ve datos | Para qué sirve `AccessUsers` |
+   |---|---|---|
+   | `interno` (el estándar) | Todo `@epa.digital`. Sin registro = `usuario` implícito, solo lectura | Dar rol `admin`, y **bloquear** a una persona concreta (`disabled`) |
+   | `restringido` (excepción deliberada, con motivo y dueño en el `AGENTS.md`) | Solo quien tenga un registro `active` | Es la puerta de entrada: sin registro, 403 |
+
+   Reglas que no cambian entre modos: un registro **explícito** siempre gana al
+   valor por defecto (`disabled` bloquea también en `interno`), **nunca se
+   fabrica un admin** (`RequireAdmin` exige un registro `admin` activo y se
+   relee sin caché) y **si Firestore falla, nadie entra** (500, no se abre).
 
 Modelo: `EPA-Digital/kcm-informe-interno` (verifica en la API) y
 `EPA-Digital/chedraui-dashboard` (en producción, la parte de `AccessUsers`).
@@ -21,6 +32,8 @@ Las diferencias con ellos son a propósito:
 | Revisar el claim `hd` (ni KCM ni Chedraui lo hacen) | Si alguien amplía IAP por error (`allAuthenticatedUsers`), una cuenta de Gmail igual no pasa |
 | Sin auto-registro, `/me` no escribe (KCM registra `pending` en un GET) | Sin registros basura; el alta la hace un admin |
 | Solo `active` / `disabled` | No hay `pending` sin auto-registro; la baja es lógica y queda `updatedBy` |
+| `interno` abierto por defecto, `restringido` solo si se declara (KCM y Chedraui usan la lista como puerta) | Política de EPA (nov 2026): nada interno debe quedar cerrado por accidente. Cerrar es una decisión explícita, no un estado vacío de IAM |
+| `interno` solo arranca con `AUTH_ALLOWED_DOMAINS=epa.digital` | Si se cambiara el dominio sin cambiar el modo, la gente del cliente entraría con lectura automática |
 
 `{module}` = el module path de `go.mod` del dashboard. Dependencias:
 `google.golang.org/api/idtoken`, `cloud.google.com/go/firestore`, gin, logrus
@@ -35,7 +48,8 @@ tests pasan tal cual (Go 1.24+).
 |---|---|---|
 | `AUTH_MODE` | `iap` | `local` solo en desarrollo; **se niega a arrancar** si existe `K_SERVICE` (Cloud Run) |
 | `IAP_AUDIENCE` | `/projects/689827400521/locations/us-central1/services/{servicio}` | Lo imprime `setup-acceso.sh`. Sin él, el servidor no arranca |
-| `AUTH_ALLOWED_DOMAINS` | `epa.digital` (default si falta) | Externos: `epa.digital,cliente.com`. `*` = no revisar dominio (solo con Datos e IA) |
+| `ACCESS_MODE` | `interno` \| `restringido` | **Obligatoria**, sin default: si falta o es otra cosa, el servidor no arranca. La imprime `setup-acceso.sh` según `--acceso` |
+| `AUTH_ALLOWED_DOMAINS` | `epa.digital` (default si falta) | Con `ACCESS_MODE=interno` solo se acepta exactamente `epa.digital`. Externos (con Datos e IA): `epa.digital,cliente.com`, o `*` = no revisar dominio |
 | `FIRESTORE_PROJECT_ID` | `epa-turing` | |
 | `FIRESTORE_DATABASE_ID` | `{servicio}` | Base dedicada, nunca `(default)` |
 | `FIRESTORE_ACCESS_COLLECTION` | `AccessUsers` (default) | |
@@ -45,8 +59,8 @@ tests pasan tal cual (Go 1.24+).
 
 | Ruta | Guardias | Para qué |
 |---|---|---|
-| `GET /api/v1/me` | `Identity` | Estado de quien pregunta: 200 con su registro, 401 sin JWT válido, 403 sin alta |
-| `/api/v1/*` (datos) | `Identity` + `RequireAccess` | Solo `active` |
+| `GET /api/v1/me` | `Identity` | Estado de quien pregunta: 200 con su registro (en `interno`, sin registro, el `usuario` implícito con `implicit: true`), 401 sin JWT válido, 403 sin alta en `restringido` o con `disabled` |
+| `/api/v1/*` (datos) | `Identity` + `RequireAccess` | `active` (o implícito en `interno`) |
 | `GET/POST /api/v1/admin/access-users`, `PATCH …/:email` | + `RequireAdmin` (sin caché) | Pantalla de accesos |
 
 `/health` va fuera de `/api/v1` y sin guardias (el startup probe no trae JWT).
@@ -76,6 +90,14 @@ const (
 	StatusDisabled = "disabled" // baja lógica: el registro se conserva
 )
 
+// Modos de acceso (ACCESS_MODE). Se declaran siempre; no hay default.
+const (
+	AccessInterno     = "interno"     // todo @epa.digital ve datos; la lista da admins y bloqueos
+	AccessRestringido = "restringido" // solo quien tenga un registro `active`
+)
+
+func ValidAccessMode(m string) bool { return m == AccessInterno || m == AccessRestringido }
+
 // AccessUser es una persona dada de alta en ESTE dashboard. El ID del
 // documento en Firestore es NormalizeEmail(email).
 type AccessUser struct {
@@ -87,6 +109,10 @@ type AccessUser struct {
 	CreatedBy string     `json:"createdBy,omitempty" firestore:"createdBy,omitempty"`
 	UpdatedAt *time.Time `json:"updatedAt,omitempty" firestore:"updatedAt,omitempty"`
 	UpdatedBy string     `json:"updatedBy,omitempty" firestore:"updatedBy,omitempty"`
+
+	// Implicit: no hay registro; es el `usuario` de solo lectura que se da por
+	// defecto en ACCESS_MODE=interno. Nunca se guarda ni es admin.
+	Implicit bool `json:"implicit,omitempty" firestore:"-"`
 }
 
 // AccessUserPatch: cambio parcial; solo se aplica lo que no es nil.
@@ -302,8 +328,8 @@ func TestIAPVerifier(t *testing.T) {
 
 ```go
 // Package access decide quién ve el dashboard. IAP autentica y el verifier
-// ya sacó el correo del JWT; aquí solo se contesta "¿está dado de alta y
-// activo?", y se administran las altas y bajas.
+// ya sacó el correo del JWT; aquí se contesta "¿puede ver datos?" según
+// ACCESS_MODE, y se administran las altas y bajas.
 package access
 
 import (
@@ -323,6 +349,7 @@ type cached struct {
 type Service struct {
 	repo ports.AccessUserRepository
 	ttl  time.Duration
+	mode string // entity.AccessInterno | entity.AccessRestringido
 	now  func() time.Time
 
 	mu    sync.Mutex
@@ -330,12 +357,18 @@ type Service struct {
 }
 
 // NewService: ttl acota las lecturas a Firestore. Una baja tarda hasta ttl
-// en verse en las demás instancias (60 s por default, ver config).
-func NewService(repo ports.AccessUserRepository, ttl time.Duration) *Service {
-	return &Service{repo: repo, ttl: ttl, now: time.Now, cache: map[string]cached{}}
+// en verse en las demás instancias (60 s por default, ver config). mode es
+// ACCESS_MODE; config.LoadAuth ya lo validó, pero un valor desconocido aquí
+// se trata como `restringido` (fallar cerrado).
+func NewService(repo ports.AccessUserRepository, ttl time.Duration, mode string) *Service {
+	if mode != entity.AccessInterno {
+		mode = entity.AccessRestringido
+	}
+	return &Service{repo: repo, ttl: ttl, mode: mode, now: time.Now, cache: map[string]cached{}}
 }
 
-// Authorize es el guardia de las rutas de datos: solo `active` pasa.
+// Authorize es el guardia de las rutas de datos: solo `active` pasa (el
+// implícito de `interno` también lo es; un `disabled` explícito no).
 func (s *Service) Authorize(ctx context.Context, id entity.Identity) (*entity.AccessUser, error) {
 	user, err := s.Me(ctx, id)
 	if err != nil {
@@ -347,7 +380,10 @@ func (s *Service) Authorize(ctx context.Context, id entity.Identity) (*entity.Ac
 	return user, nil
 }
 
-// Me devuelve el registro en cualquier estado. NO escribe: sin alta = 403.
+// Me devuelve el registro en cualquier estado. NO escribe. Sin registro:
+// `restringido` = 403; `interno` = `usuario` implícito (solo lectura). El
+// implícito se da SOLO cuando el repo contestó "no existe" (user == nil); un
+// error de Firestore sale por el return de arriba y nunca abre el acceso.
 func (s *Service) Me(ctx context.Context, id entity.Identity) (*entity.AccessUser, error) {
 	key := entity.NormalizeEmail(id.Email)
 	if key == "" {
@@ -358,6 +394,11 @@ func (s *Service) Me(ctx context.Context, id entity.Identity) (*entity.AccessUse
 		return nil, err
 	}
 	if user == nil {
+		if s.mode == entity.AccessInterno {
+			return &entity.AccessUser{
+				Email: key, Role: entity.RoleUsuario, Status: entity.StatusActive, Implicit: true,
+			}, nil
+		}
 		return nil, ports.ErrForbidden
 	}
 	return user, nil
@@ -467,9 +508,85 @@ import (
 
 func ptr(s string) *string { return &s }
 
+// fakeRepo: Get contesta lo que se le configure; el resto de la interfaz no se
+// usa en estas pruebas (la embebida es nil y haría panic si se llamara).
+type fakeRepo struct {
+	ports.AccessUserRepository
+	users map[string]*entity.AccessUser
+	err   error
+}
+
+func (f fakeRepo) Get(_ context.Context, email string) (*entity.AccessUser, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.users[email], nil // (nil, nil) si no está
+}
+
+func TestAccessModes(t *testing.T) {
+	ctx := context.Background()
+	ana := entity.Identity{Email: "Ana@epa.digital"}
+	users := map[string]*entity.AccessUser{
+		"baja@epa.digital":  {Email: "baja@epa.digital", Role: entity.RoleUsuario, Status: entity.StatusDisabled},
+		"jefa@epa.digital":  {Email: "jefa@epa.digital", Role: entity.RoleAdmin, Status: entity.StatusActive},
+		"vista@epa.digital": {Email: "vista@epa.digital", Role: entity.RoleUsuario, Status: entity.StatusActive},
+	}
+
+	t.Run("interno: sin registro entra como usuario implícito", func(t *testing.T) {
+		s := NewService(fakeRepo{users: users}, time.Minute, entity.AccessInterno)
+		u, err := s.Authorize(ctx, ana)
+		if err != nil || u.Role != entity.RoleUsuario || !u.Implicit {
+			t.Fatalf("esperaba usuario implícito, got %+v, %v", u, err)
+		}
+	})
+	t.Run("interno: nunca se fabrica un admin", func(t *testing.T) {
+		s := NewService(fakeRepo{users: users}, time.Minute, entity.AccessInterno)
+		if _, err := s.AdminFresh(ctx, ana); !errors.Is(err, ports.ErrForbidden) {
+			t.Fatalf("admin sin registro: %v", err)
+		}
+	})
+	t.Run("interno: un registro disabled bloquea", func(t *testing.T) {
+		s := NewService(fakeRepo{users: users}, time.Minute, entity.AccessInterno)
+		if _, err := s.Authorize(ctx, entity.Identity{Email: "baja@epa.digital"}); !errors.Is(err, ports.ErrForbidden) {
+			t.Fatalf("disabled debería ser 403: %v", err)
+		}
+	})
+	t.Run("interno: un registro explícito gana al implícito", func(t *testing.T) {
+		s := NewService(fakeRepo{users: users}, time.Minute, entity.AccessInterno)
+		u, err := s.Authorize(ctx, entity.Identity{Email: "jefa@epa.digital"})
+		if err != nil || u.Role != entity.RoleAdmin || u.Implicit {
+			t.Fatalf("esperaba el admin explícito, got %+v, %v", u, err)
+		}
+	})
+	t.Run("restringido: sin registro es 403", func(t *testing.T) {
+		s := NewService(fakeRepo{users: users}, time.Minute, entity.AccessRestringido)
+		if _, err := s.Authorize(ctx, ana); !errors.Is(err, ports.ErrForbidden) {
+			t.Fatalf("sin registro debería ser 403: %v", err)
+		}
+		if _, err := s.Authorize(ctx, entity.Identity{Email: "vista@epa.digital"}); err != nil {
+			t.Fatalf("registro activo debería pasar: %v", err)
+		}
+	})
+	t.Run("un error del repo nunca abre el acceso, en ningún modo", func(t *testing.T) {
+		boom := errors.New("firestore caído")
+		for _, mode := range []string{entity.AccessInterno, entity.AccessRestringido} {
+			s := NewService(fakeRepo{err: boom}, time.Minute, mode)
+			if u, err := s.Authorize(ctx, ana); !errors.Is(err, boom) || u != nil {
+				t.Fatalf("%s: error de repo debía propagarse, got %+v, %v", mode, u, err)
+			}
+		}
+	})
+	t.Run("un modo desconocido falla cerrado (restringido)", func(t *testing.T) {
+		s := NewService(fakeRepo{users: users}, time.Minute, "abierto")
+		if _, err := s.Authorize(ctx, ana); !errors.Is(err, ports.ErrForbidden) {
+			t.Fatalf("modo desconocido debería cerrar: %v", err)
+		}
+	})
+}
+
 func TestService(t *testing.T) {
 	ctx := context.Background()
-	s := NewService(mockdata.NewAccessUserRepository(), time.Minute)
+	s := NewService(mockdata.NewAccessUserRepository(), time.Minute, entity.AccessRestringido)
 
 	if _, err := s.Create(ctx, "Ana@epa.digital", "Ana", entity.RoleUsuario, "jefa@epa.digital"); err != nil {
 		t.Fatal(err)
@@ -542,7 +659,8 @@ func Identity(v ports.Verifier) gin.HandlerFunc {
 	}
 }
 
-// RequireAccess: solo un registro `active` pasa. Va después de Identity.
+// RequireAccess: pasa un registro `active` o, en ACCESS_MODE=interno, quien no
+// tenga registro (usuario implícito). Va después de Identity.
 func RequireAccess(s *svc.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		user, err := s.Authorize(c.Request.Context(), identityOf(c))
@@ -881,11 +999,14 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"{module}/internal/pkg/entity"
 )
 
 // Auth: las variables de acceso del contenedor api.
 type Auth struct {
 	Mode           string        // AUTH_MODE: "iap" (default) | "local"
+	AccessMode     string        // ACCESS_MODE: "interno" | "restringido" (OBLIGATORIA, sin default)
 	IAPAudience    string        // IAP_AUDIENCE: /projects/NÚM/locations/REGIÓN/services/SERVICIO
 	AllowedDomains []string      // AUTH_ALLOWED_DOMAINS: "epa.digital" (default)
 	Collection     string        // FIRESTORE_ACCESS_COLLECTION: "AccessUsers" (default)
@@ -895,6 +1016,7 @@ type Auth struct {
 func LoadAuth() (Auth, error) {
 	a := Auth{
 		Mode:        or(os.Getenv("AUTH_MODE"), "iap"),
+		AccessMode:  strings.ToLower(strings.TrimSpace(os.Getenv("ACCESS_MODE"))),
 		IAPAudience: strings.TrimSpace(os.Getenv("IAP_AUDIENCE")),
 		Collection:  or(os.Getenv("FIRESTORE_ACCESS_COLLECTION"), "AccessUsers"),
 		CacheTTL:    time.Minute,
@@ -928,6 +1050,15 @@ func LoadAuth() (Auth, error) {
 // validate falla cerrado: una config de acceso inválida impide ARRANCAR el
 // servidor, en vez de dejar pasar a alguien.
 func (a Auth) validate() error {
+	// El modo se DECLARA: sin default en ninguna dirección. Y `interno` solo
+	// vale para el dominio de EPA; con otros dominios (o "*") sería abrirle
+	// lectura automática a gente del cliente.
+	if !entity.ValidAccessMode(a.AccessMode) {
+		return errors.New("config: ACCESS_MODE es obligatoria: 'interno' o 'restringido'")
+	}
+	if a.AccessMode == entity.AccessInterno && !(len(a.AllowedDomains) == 1 && a.AllowedDomains[0] == "epa.digital") {
+		return errors.New("config: ACCESS_MODE=interno exige AUTH_ALLOWED_DOMAINS=epa.digital (acceso externo se escala a datos@epa.digital)")
+	}
 	switch a.Mode {
 	case "iap":
 		if a.IAPAudience == "" {
@@ -949,6 +1080,51 @@ func or(v, d string) string {
 		return v
 	}
 	return d
+}
+```
+
+`internal/pkg/config/auth_test.go`
+
+```go
+package config
+
+import (
+	"os"
+	"testing"
+)
+
+func TestLoadAuth(t *testing.T) {
+	cases := []struct {
+		name    string
+		env     map[string]string
+		wantErr bool
+	}{
+		{"interno estándar", map[string]string{"ACCESS_MODE": "interno"}, false},
+		{"restringido estándar", map[string]string{"ACCESS_MODE": "restringido"}, false},
+		{"sin ACCESS_MODE no arranca", map[string]string{}, true},
+		{"ACCESS_MODE desconocido no arranca", map[string]string{"ACCESS_MODE": "abierto"}, true},
+		{"interno con dominio de cliente no arranca", map[string]string{"ACCESS_MODE": "interno", "AUTH_ALLOWED_DOMAINS": "epa.digital,cliente.com"}, true},
+		{"interno con * no arranca", map[string]string{"ACCESS_MODE": "interno", "AUTH_ALLOWED_DOMAINS": "*"}, true},
+		{"restringido con dominios de cliente (con Datos e IA)", map[string]string{"ACCESS_MODE": "restringido", "AUTH_ALLOWED_DOMAINS": "epa.digital,cliente.com"}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// t.Setenv registra la restauración al terminar; Unsetenv deja la
+			// variable AUSENTE (vacía no es lo mismo: LoadAuth la rechaza).
+			for _, k := range []string{"ACCESS_MODE", "AUTH_ALLOWED_DOMAINS", "ACCESS_CACHE_TTL", "K_SERVICE"} {
+				t.Setenv(k, "")
+				os.Unsetenv(k)
+			}
+			t.Setenv("AUTH_MODE", "iap")
+			t.Setenv("IAP_AUDIENCE", "/projects/1/locations/r/services/s")
+			for k, v := range c.env {
+				t.Setenv(k, v)
+			}
+			if _, err := LoadAuth(); (err != nil) != c.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, c.wantErr)
+			}
+		})
+	}
 }
 ```
 
@@ -978,7 +1154,7 @@ func registerAccess(r *gin.Engine, cfg config.Auth, repo ports.AccessUserReposit
 	if cfg.Mode == "iap" {
 		verifier = auth.NewIAPVerifier(cfg.IAPAudience, cfg.AllowedDomains, nil)
 	}
-	svc := accessSvc.NewService(repo, cfg.CacheTTL)
+	svc := accessSvc.NewService(repo, cfg.CacheTTL, cfg.AccessMode)
 
 	v1 := r.Group("/api/v1")
 	v1.Use(accessAPI.NoStore(), accessAPI.Identity(verifier))
@@ -1015,6 +1191,10 @@ func registerAccess(r *gin.Engine, cfg config.Auth, repo ports.AccessUserReposit
   `epa-frontend/references/auth.md`). Sin pantalla todavía: consola de
   Firestore → base `{servicio}` → `AccessUsers` → documento con ID = correo en
   minúsculas y los campos `role`, `status`.
+- **En `interno` no hace falta dar de alta a nadie para que vea datos**: todo
+  `@epa.digital` entra con lectura. Las altas sirven para nombrar admins, y la
+  baja (`status: disabled`) para bloquear a una persona concreta. **En
+  `restringido`** el alta sí es la puerta de entrada.
 - **Recuperar acceso si no queda ningún admin activo:** editar el documento a
   mano en la consola. El service impide que un admin se quite a sí mismo, pero
   dos admins pueden quitarse entre ellos.

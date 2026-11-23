@@ -46,9 +46,12 @@ Busca patrones de credenciales hardcodeadas:
 
 ## 3. Auth y control de acceso
 
-Todo dashboard tiene que tener **IAP + lista de acceso** (ver
+Todo dashboard tiene que tener **IAP + `ACCESS_MODE` en la API** (ver
 `epa-frontend/references/auth.md` y `epa-backend/references/access-control.md`).
-Revisar, en los dos runtimes:
+Política de EPA: **nada interno está cerrado a menos que se declare.**
+`interno` (el estándar) da lectura a todo `@epa.digital`; `restringido` es una
+excepción declarada con motivo y dueño; no marques `interno` como defecto por
+"abrirse a todo EPA": es lo esperado. Revisar, en los dos runtimes:
 
 - **Crítico:**
   - Login propio con contraseña compartida, token de sesión estático, o
@@ -63,6 +66,12 @@ Revisar, en los dos runtimes:
   - La verificación del JWT no revisa `aud` (con `IAP_AUDIENCE` de este
     servicio), `iss` o firma; o no revisa el dominio (`hd`) en un dashboard
     `Acceso: interno`.
+  - `ACCESS_MODE` ausente o con un default silencioso en el código (debe
+    negarse a arrancar), o que se fabrique un `admin` implícito, o que un
+    error de Firestore deje pasar (en `interno`, el usuario implícito solo se
+    da cuando el repositorio contestó "no existe", nunca ante un error).
+  - `ACCESS_MODE=interno` con `AUTH_ALLOWED_DOMAINS` distinto de `epa.digital`
+    (lectura automática para gente de fuera).
   - Una ruta de datos de `/api/v1` registrada **antes** de `RequireAccess`, o
     una ruta de admin sin `RequireAdmin`, o registrada después de la caché de
     respuestas.
@@ -77,8 +86,13 @@ Revisar, en los dos runtimes:
     validarlo** contra una lista esperada → fuga cross-cliente (crítico si hay
     evidencia de que devuelve datos de otro cliente, ver sección 5).
 - **Medio:**
-  - El `AGENTS.md` no dice `Acceso: interno|externo`, o lo que dice no
-    coincide con el deploy (p. ej. `interno` sin `AUTH_ALLOWED_DOMAINS`).
+  - El `AGENTS.md` no dice `Acceso: interno|restringido|externo`, o lo que
+    dice no coincide con el deploy (p. ej. `ACCESS_MODE` distinto, o `interno`
+    sin `AUTH_ALLOWED_DOMAINS=epa.digital`).
+  - `Acceso: restringido` sin **motivo y dueño** en el `AGENTS.md`.
+  - Servicio con IAP activado y **política vacía** (nadie en
+    `iap.httpsResourceAccessor`, ni por servicio ni a nivel proyecto): un
+    dashboard cerrado sin declarar (caso `kcm-dashboard-vibe`, nov 2026).
   - Endpoints de máquina con un secreto que **falla abierto** cuando falta la
     variable (`if secret != "" && ...`).
   - Respuestas de `/api/v1` sin `Cache-Control: no-store`.

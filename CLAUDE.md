@@ -228,11 +228,15 @@ O dejar que `extraKnownMarketplaces`/`enabledPlugins` en
 7. **El frontend nunca declara un cliente de BigQuery.** Es el único
    control que compensa que los dos contenedores comparten service
    account — ver `epa-backend`.
-8. **Acceso = IAP + lista `AccessUsers`, siempre** (también en internos):
-   IAP deja pasar solo `@epa.digital`, `apps/api` verifica el JWT de IAP y
-   autoriza contra la lista del dashboard. `Acceso: interno|externo` se
-   decide en `/plan-dashboard` y queda en el `AGENTS.md`; externo se escala
-   a Datos e IA. Nunca contraseña compartida ni servicio público. Ver
+8. **Acceso = IAP + `ACCESS_MODE` en la API, siempre** (también en
+   internos): IAP deja pasar solo `@epa.digital` y `apps/api` verifica el JWT
+   de IAP. **Nada interno está cerrado a menos que se declare:** `interno`
+   (el estándar) da lectura a todo `@epa.digital` y la lista `AccessUsers`
+   solo nombra admins y bloquea personas; `restringido` (excepción, con
+   motivo y dueño en el `AGENTS.md`) usa la lista como puerta de entrada.
+   `Acceso: interno|restringido|externo` se decide en `/plan-dashboard` y
+   queda en el `AGENTS.md`; externo se escala a Datos e IA. Nunca contraseña
+   compartida, servicio público ni IAP activado con la política vacía. Ver
    `epa-frontend/references/auth.md` y `epa-deploy/scripts/setup-acceso.sh`.
 
 ---
