@@ -99,40 +99,70 @@ Los siguientes pasos tienen **tres rutas**. Elige la que mejor se adapte:
 | **Opción B — gcloud CLI** | Usuarios técnicos que prefieren terminal | Instalar gcloud (descarga en [cloud.google.com/sdk/docs/install](https://cloud.google.com/sdk/docs/install) — `.pkg` para Mac, `.exe` para Windows, sin terminal) |
 | **Opción C — Datos e IA lo hace por ti** | Usuarios sin acceso a GCP o sin tiempo para el setup | Nada — solo envía un correo |
 
-> **Opción C (más rápida):** Escribe a `datos@epa.digital` con el asunto "Setup CI/CD para [nombre-de-tu-dashboard]". El área de Datos e IA crea la service account, la registra en Artifact Registry y te manda el valor del `GCP_SA_KEY`. Tú solo agregas ese secret en tu repo de GitHub y pones el workflow. Pasa al paso del workflow directamente.
+> **Opción C (más rápida):** Escribe a `datos@epa.digital` con el asunto "Setup de [nombre-de-tu-dashboard]". El área de Datos e IA crea la service account de runtime y sus permisos de BigQuery. La autenticación del deploy ya no requiere nada por dashboard (ver paso 1).
 
 ---
 
-### 1. Configurar autenticación de GitHub → GCP
+### 1. Autenticación de GitHub → GCP: sin llaves (Workload Identity Federation)
 
-**Opción B (gcloud):** crear la Service Account desde terminal:
+**Los dashboards no usan llaves JSON ni secretos de GitHub para desplegar.**
+GitHub Actions presenta un token de corta duración y GCP lo cambia por acceso a
+la SA `github-dashboards-deployer`. No hay nada que crear ni subir por
+dashboard; solo se cumplen dos condiciones, y la plataforma las exige:
+
+- el repo está en la org **`EPA-Digital`** y su nombre **termina en
+  `-dashboard`** (`feeds-dashboard`, `chedraui-dashboard`…);
+- el deploy corre desde la rama **`main`** y solo con los eventos `push` o
+  `workflow_dispatch` (el template ya dispara así; un `pull_request` o un
+  `pull_request_target` no obtiene credenciales).
+
+La infraestructura (pool, provider y SA) se crea **una sola vez para toda la
+plataforma** con `epa-deploy/scripts/setup-wif.sh`, que corre alguien con
+permisos de IAM (Datos e IA). Comprueba que ya existe:
 
 ```bash
-gcloud iam service-accounts create github-actions-deployer \
-  --display-name="GitHub Actions Deployer" \
-  --project=epa-turing
+gcloud iam workload-identity-pools describe github-dashboards \
+  --location=global --project=epa-turing --format="value(state)"   # ACTIVE
+```
 
-# Permisos necesarios
-gcloud projects add-iam-policy-binding epa-turing \
-  --member="serviceAccount:github-actions-deployer@epa-turing.iam.gserviceaccount.com" \
-  --role="roles/run.admin"
+Si no existe, pídelo a `datos@epa.digital`; si eres owner, corre
+`setup-wif.sh --dry-run` y luego sin `--dry-run`.
 
-gcloud projects add-iam-policy-binding epa-turing \
-  --member="serviceAccount:github-actions-deployer@epa-turing.iam.gserviceaccount.com" \
-  --role="roles/artifactregistry.writer"
+**Qué puede hacer `github-dashboards-deployer`** (probado el 2026-11-23 con una
+SA temporal): crear y actualizar servicios de Cloud Run (con `--iap` y SA de
+runtime propia) y subir imágenes a `epa-containers`. **No puede cambiar el IAM
+de un servicio**, así que no puede exponerlo al público. Es lo mismo que
+cualquier persona de EPA ya puede hacer como Editor del proyecto; lo que se
+gana es que no existe ninguna credencial de larga vida que pueda filtrarse.
 
-gcloud projects add-iam-policy-binding epa-turing \
-  --member="serviceAccount:github-actions-deployer@epa-turing.iam.gserviceaccount.com" \
-  --role="roles/iam.serviceAccountUser"
+> ⚠️ **No se puede acotar esta SA a servicios `-vibe` por IAM**: las
+> condiciones IAM por nombre no funcionan con Cloud Run vía `gcloud` (probado
+> el 2026-11-23). Por eso el guard del label `epa-managed-by` del workflow y
+> los guards del plugin siguen siendo obligatorios.
 
-# --- SA de RUNTIME, distinta de la de deploy ---------------------------
-# github-actions-deployer es quien DESPLIEGA. El servicio, en tiempo de
-# ejecución, corre con {cliente}-dashboard-runtime — la misma SA para los
-# dos contenedores (web + api). Solo esta SA necesita permisos de BigQuery
-# y necesita LOS DOS roles: dataViewer solo no incluye bigquery.jobs.create,
-# y la primera query del contenedor api da 403 sin jobUser también. Comandos
-# exactos y el porqué en epa-deploy/references/cloud-run-config.md — única
-# fuente, no se repiten en otro archivo.
+**Repos que no terminan en `-dashboard`** (p. ej. `kcm-informe-interno`) quedan
+fuera del patrón: escala a Datos e IA para una excepción explícita; no crees
+una llave.
+
+**Migrar un dashboard que usa `GCP_SA_KEY`:** (1) cambia el paso de
+autenticación del workflow por el del template de abajo, (2) borra el secreto
+`GCP_SA_KEY` del repo, (3) pide a Datos e IA que borren la llave de la SA
+(`gcloud iam service-accounts keys delete`). Mientras la llave exista, sigue
+siendo una credencial viva.
+
+### 2. Service account de RUNTIME del dashboard
+
+Una por dashboard (la de **deploy** es única para toda la plataforma, ver paso
+1). En tiempo de ejecución el servicio corre con `{cliente}-dashboard-runtime`,
+la misma SA para los dos contenedores (web + api). Solo esta SA necesita
+permisos de BigQuery y necesita LOS DOS roles: `dataViewer` solo no incluye
+`bigquery.jobs.create`, y la primera query del contenedor api da 403 sin
+`jobUser` también. Comandos exactos y el porqué en
+`epa-deploy/references/cloud-run-config.md` — única fuente, no se repiten en
+otro archivo.
+
+**Opción B (gcloud):**
+```bash
 gcloud iam service-accounts create {cliente}-dashboard-runtime \
   --display-name="{cliente} dashboard — runtime (web + api)" \
   --project=epa-turing
@@ -141,33 +171,7 @@ gcloud iam service-accounts create {cliente}-dashboard-runtime \
 > **Opción A (Consola GCP):**
 > 1. Ve a [console.cloud.google.com](https://console.cloud.google.com) → proyecto `epa-turing`
 > 2. Menú → **IAM & Admin → Service Accounts** → **+ Crear cuenta de servicio**
-> 3. Nombre: `github-actions-deployer` → **Crear y continuar**
-> 4. Agrega los tres roles uno a uno: **Cloud Run Admin**, **Artifact Registry Writer**, **Service Account User** → **Listo**
-
-### 2. Crear el JSON de credenciales y subirlo a GitHub
-
-**Opción B (gcloud):**
-```bash
-gcloud iam service-accounts keys create github-actions-key.json \
-  --iam-account=github-actions-deployer@epa-turing.iam.gserviceaccount.com
-
-# ⚠️ IMPORTANTE: Este archivo es una credencial.
-# NO commitearlo al repo. Borrarlo después de subirlo a GitHub.
-```
-
-> **Opción A (Consola GCP):**
-> 1. **IAM & Admin → Service Accounts** → click en `github-actions-deployer`
-> 2. Pestaña **Keys** → **Agregar clave → Crear nueva clave → JSON** → se descarga el archivo automáticamente
-> 3. ⚠️ Ese archivo es la credencial — no lo compartas ni lo subas al repo
-
-En GitHub → tu repo → **Settings → Secrets and variables → Actions → New repository secret**:
-- Nombre: `GCP_SA_KEY`
-- Valor: contenido completo del archivo JSON descargado (ábrelo con cualquier editor de texto, copia todo)
-
-Luego borra el archivo del disco (no lo dejes ahí):
-```bash
-rm github-actions-key.json
-```
+> 3. Nombre: `{cliente}-dashboard-runtime` → **Crear y continuar** → **Listo**
 
 ### 3. Crear el repositorio en Artifact Registry
 
@@ -275,6 +279,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write   # WIF: GitHub emite el token que GCP intercambia (sin llaves)
 
     steps:
       - name: Checkout del código
@@ -311,10 +316,14 @@ jobs:
         working-directory: apps/api
         run: go build ./... && go test ./... && golangci-lint run
 
-      - name: Autenticar en GCP
+      # Sin llaves ni secretos del repo: Workload Identity Federation. Solo
+      # funciona si el repo está en EPA-Digital, termina en -dashboard y el
+      # workflow corre desde main (ver Prerequisitos, paso 1).
+      - name: Autenticar en GCP (WIF)
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: projects/689827400521/locations/global/workloadIdentityPools/github-dashboards/providers/github
+          service_account: github-dashboards-deployer@epa-turing.iam.gserviceaccount.com
 
       - name: Configurar Docker para Artifact Registry
         run: |
@@ -516,7 +525,8 @@ cp .env.example .env.local   # editar con valores de prueba
 ```
 AMBOS CONTENEDORES
 [ ] El repo está en GitHub, bajo la org EPA-Digital, con apps/web + apps/api
-[ ] El secret GCP_SA_KEY está configurado en el repo
+[ ] El nombre del repo termina en -dashboard y el workflow despliega desde
+    main (WIF); el repo NO tiene secreto GCP_SA_KEY ni `credentials_json`
 [ ] El archivo .github/workflows/deploy.yml existe, con UN gcloud run
     deploy y dos --container (no dos servicios separados)
 [ ] SERVICE_NAME sigue la Regla 0 (kebab-case, sufijo -vibe, sin infijo -web)
@@ -527,7 +537,9 @@ AMBOS CONTENEDORES
     uno (ver epa-deploy/references/cloud-run-config.md)
 [ ] No hay credenciales en el código ni en ningún Dockerfile
 [ ] El .gitignore incluye .env*, *.key, *.json de service accounts
-[ ] El archivo github-actions-key.json fue borrado después de subirlo a GitHub
+[ ] No existe ninguna llave JSON de service account para este deploy (si el
+    dashboard venía de GCP_SA_KEY: el secreto está borrado y Datos e IA
+    borraron la llave)
 [ ] El deploy usa --no-allow-unauthenticated Y --iap (ver nota de auth arriba)
 [ ] AGENTS.md dice `Acceso: interno`, `restringido` o `externo`, y coincide con
     lo desplegado (restringido → motivo y dueño; externo → aprobado por

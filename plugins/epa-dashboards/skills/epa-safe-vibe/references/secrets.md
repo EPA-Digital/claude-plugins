@@ -207,12 +207,13 @@ pide restauración de inmediato.
 
 ## 7. Estado actual y decisiones abiertas
 
-- **Credencial de deploy.** Hoy el workflow de `epa-deploy` autentica con
-  una llave JSON de service account guardada como secreto de GitHub
-  (`GCP_SA_KEY`). Es una credencial de larga vida; por eso el checklist
-  exige borrar `github-actions-key.json` del disco tras subirla. Cambiar
-  ese mecanismo es una decisión de arquitectura del equipo, no algo que
-  una sesión decida por su cuenta — si te preocupa, plantéalo a Datos.
+- **Credencial de deploy (decidido el 2026-11-23).** El workflow de
+  `epa-deploy` autentica con **Workload Identity Federation**, sin llaves ni
+  secretos de GitHub (`github-dashboards-deployer`, solo repos `*-dashboard`
+  de `EPA-Digital`, solo desde `main`). **Nunca crear una llave JSON de
+  service account para un deploy**: es una credencial de larga vida. Los
+  dashboards que aún usan `GCP_SA_KEY` se migran (ver `epa-deploy`,
+  Prerequisitos, paso 1).
 - **Sin confirmar con Datos e IA:** convención formal de nombres, quién
   puede crear secretos además de Datos, y política de rotación periódica.
   Hasta que se definan, este documento solo afirma lo observable arriba.

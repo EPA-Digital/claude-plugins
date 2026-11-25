@@ -98,6 +98,9 @@ excepción declarada con motivo y dueño; no marques `interno` como defecto por
     dashboard cerrado sin declarar (caso `kcm-dashboard-vibe`, nov 2026).
   - Endpoints de máquina con un secreto que **falla abierto** cuando falta la
     variable (`if secret != "" && ...`).
+  - Un workflow que autentica con `credentials_json` / `GCP_SA_KEY` (llave JSON
+    de larga vida) en lugar de Workload Identity Federation: debe migrarse
+    (ver `epa-deploy`, Prerequisitos, paso 1).
   - Respuestas de `/api/v1` sin `Cache-Control: no-store`.
 
 ## Severidad — guía cuando la sección no la especifica
