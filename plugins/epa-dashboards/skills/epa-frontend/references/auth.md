@@ -25,7 +25,9 @@ navegador ──► IAP (Google)          AUTENTICA: ¿quién eres?
    **nada interno está cerrado a menos que se declare.**
    - **`interno`** — el estándar. Todo `@epa.digital` entra con lectura.
      `AccessUsers` solo sirve para dar rol `admin` y para bloquear a una
-     persona concreta (`disabled`).
+     persona concreta (`disabled`). Si no hacen falta ni admins ni bloqueos,
+     ni siquiera existe la lista (`ACCESS_STORE=none`): no hay Firestore ni nada
+     que pedir.
    - **`restringido`** — excepción deliberada, con motivo y dueño en el
      `AGENTS.md` (por ejemplo datos financieros de la agencia o de personas;
      datos de medios de clientes no lo justifican). Aquí `AccessUsers` es la
@@ -69,12 +71,13 @@ nada del código:
 |---|---|---|---|
 | Quién ve datos | Todo `@epa.digital` | Solo con registro `active` | Quien se dé de alta |
 | `ACCESS_MODE` (api) | `interno` | `restringido` | `restringido` |
+| `ACCESS_STORE` (api) | `none` (nada que pedir) o `firestore` si hacen falta admins o bloqueos | `firestore` | `firestore` |
 | IAP | Identidades de Google, `domain:epa.digital` | Igual que interno (a nivel proyecto) | External identities + Identity Platform, o cliente OAuth propio |
 | Página de login | No | No | Sí (patrón `apps/login` de Chedraui) |
 | `AUTH_ALLOWED_DOMAINS` (api) | Exactamente `epa.digital` (si no, no arranca) | `epa.digital` | Dominios del cliente + `epa.digital`, o `*` |
-| Rol de `AccessUsers` | Admins y bloqueos | Puerta de entrada + roles | Puerta de entrada + roles |
+| Rol de `AccessUsers` | Admins y bloqueos (solo con `firestore`) | Puerta de entrada + roles | Puerta de entrada + roles |
 | Qué se declara en el `AGENTS.md` | Nada más | **Motivo y dueño** | Aprobación de Datos e IA |
-| Quién lo monta | Quien construye el dashboard, con `setup-acceso.sh --acceso interno` | Igual, con `--acceso restringido` | **Escalar a `datos@epa.digital`** antes de exponerlo |
+| Quién lo monta | Quien construye el dashboard, con `setup-acceso.sh --acceso interno` | Igual, con `--acceso restringido` (usa Firestore: los permisos de IAM se piden a Datos e IA) | **Escalar a `datos@epa.digital`** antes de exponerlo |
 
 Como el IAP de dominio está concedido a nivel proyecto y IAM es aditivo,
 **restringir no se puede hacer en IAP**: se hace en la API, con la lista como
@@ -311,7 +314,8 @@ Firestore.
   quedaría confiando en un header.
 - `AUTH_MODE=local` o `DEV_USER_EMAIL` en producción.
 - La colección `users` de `bdd-epa-digital`: es la de toda la agencia y está
-  protegida (`epa-safe-vibe`). Cada dashboard tiene su `AccessUsers` en su
-  propia base de Firestore en `epa-turing`.
+  protegida (`epa-safe-vibe`). Un dashboard con `ACCESS_STORE=firestore` tiene su
+  `AccessUsers` en su propia base de Firestore en `epa-turing`; con `none` no
+  tiene ninguna.
 - Filtrar filas (qué cuentas ve alguien) en `apps/web`. Si hacen falta, van en
   el service de `apps/api`, antes de armar la query.

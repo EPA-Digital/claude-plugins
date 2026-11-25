@@ -70,6 +70,9 @@ excepción declarada con motivo y dueño; no marques `interno` como defecto por
     negarse a arrancar), o que se fabrique un `admin` implícito, o que un
     error de Firestore deje pasar (en `interno`, el usuario implícito solo se
     da cuando el repositorio contestó "no existe", nunca ante un error).
+  - `ACCESS_STORE` ausente o con un default silencioso (debe negarse a
+    arrancar), `ACCESS_STORE=none` con `ACCESS_MODE=restringido` (la lista es
+    la puerta y no tiene dónde vivir), o rutas de admin registradas con `none`.
   - `ACCESS_MODE=interno` con `AUTH_ALLOWED_DOMAINS` distinto de `epa.digital`
     (lectura automática para gente de fuera).
   - Una ruta de datos de `/api/v1` registrada **antes** de `RequireAccess`, o

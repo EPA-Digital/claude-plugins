@@ -200,25 +200,42 @@ da admins y bloqueos); `restringido` es una excepción con motivo y dueño. El
 código (verificar el JWT en `apps/api`, la puerta en `apps/web`) está en
 `epa-frontend/references/auth.md` y `epa-backend/references/access-control.md`.
 
+La API declara también **`ACCESS_STORE`**: `none` (sin Firestore: todo EPA entra
+con lectura, no hay admins ni bloqueos) o `firestore` (admins, bloqueos y, en
+`restringido`, la puerta). **Un dashboard `interno` nuevo usa `none`: no pide
+nada a nadie.** Firestore requiere permisos de IAM que un Editor no tiene.
+
 Revisa el `AGENTS.md` del dashboard (lo escribe `/plan-dashboard`):
 
-- **`Acceso: interno`** o **`Acceso: restringido`** → corre el script **antes**
-  del primer deploy y otra vez **después**, con `--acceso` igual a lo que dice
-  el `AGENTS.md`:
+- **`Acceso: interno`** (el caso normal, sin admins ni bloqueos) → corre el
+  script **antes** del primer deploy y otra vez **después**. Solo activa IAP;
+  **un Editor lo corre solo, sin pedir nada**:
   ```bash
   bash ${CLAUDE_PLUGIN_ROOT}/skills/epa-deploy/scripts/setup-acceso.sh \
     --service {cliente}-dashboard-vibe \
-    --runtime-sa {cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com \
-    --admin tu-correo@epa.digital \
-    --acceso interno   # o restringido
+    --acceso interno
   ```
-  La primera corrida crea la base de Firestore del dashboard, le da permiso a
-  la SA de runtime solo sobre esa base y crea al primer admin. La segunda
-  (con el servicio ya desplegado) activa IAP; los bindings de IAP por servicio
-  solo se crean si no existen ya a nivel proyecto (en `epa-turing` ya
-  existen). Usa `--dry-run` para ver los comandos sin ejecutarlos. Al final
-  imprime las variables del contenedor `api` (`ACCESS_MODE`, `IAP_AUDIENCE`,
-  etc.): `ACCESS_MODE` es obligatoria y sin ella la API no arranca.
+  Con el servicio ya desplegado (segunda corrida) activa IAP; los bindings de
+  IAP por servicio solo se crean si no existen ya a nivel proyecto (en
+  `epa-turing` ya existen). Usa `--dry-run` para ver los comandos sin
+  ejecutarlos. Al final imprime las variables del contenedor `api`
+  (`ACCESS_MODE`, `ACCESS_STORE`, `IAP_AUDIENCE`, etc.): las dos primeras son
+  obligatorias y sin ellas la API no arranca.
+- **`Acceso: interno` con admins o bloqueos**, o **`Acceso: restringido`**
+  (necesitan `ACCESS_STORE=firestore`) → además crea la base de Firestore del
+  dashboard, el permiso de la SA de runtime solo sobre esa base y el primer
+  admin. Esos pasos **requieren permisos de IAM que un Editor no tiene**:
+  pídeselos a Datos e IA (ver `references/cloud-run-config.md`):
+  ```bash
+  bash ${CLAUDE_PLUGIN_ROOT}/skills/epa-deploy/scripts/setup-acceso.sh \
+    --service {cliente}-dashboard-vibe \
+    --acceso interno \
+    --store firestore \
+    --admin tu-correo@epa.digital \
+    --runtime-sa {cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com
+  ```
+  Para `restringido` es igual con `--acceso restringido` (ahí `--store
+  firestore` ya es el valor por defecto y `none` se rechaza).
 - **`Acceso: restringido`** además exige, en el `AGENTS.md`, el **motivo** y el
   **dueño** (ver `references/cloud-run-config.md` § Restringido).
 - **`Acceso: externo`** (entra gente del cliente) → **no** uses el script:
@@ -366,7 +383,12 @@ jobs:
               --cpu=1 --memory=512Mi \
               --startup-probe=httpGet.path=/health,httpGet.port=8081 \
               --update-env-vars=PORT=8081,BQ_BILLING_PROJECT=epa-turing,BQ_DATA_PROJECT=bdd-epa-digital,BQ_DATASET={cliente}_reporting,BQ_MAX_BYTES_BILLED=104857600 \
-              --update-env-vars=AUTH_MODE=iap,IAP_AUDIENCE=/projects/689827400521/locations/us-central1/services/${{ env.SERVICE_NAME }},AUTH_ALLOWED_DOMAINS=epa.digital,FIRESTORE_PROJECT_ID=epa-turing,FIRESTORE_DATABASE_ID=${{ env.SERVICE_NAME }}
+              --update-env-vars=AUTH_MODE=iap,ACCESS_MODE=interno,ACCESS_STORE=none,IAP_AUDIENCE=/projects/689827400521/locations/us-central1/services/${{ env.SERVICE_NAME }},AUTH_ALLOWED_DOMAINS=epa.digital
+              # ⚠️ ACCESS_MODE debe decir lo mismo que `Acceso:` en el AGENTS.md
+              # (interno | restringido). Sin ella la API no arranca.
+              # ACCESS_STORE=none = sin Firestore (el default de un dashboard interno).
+              # Con admins o bloqueos, o con `restringido`: ACCESS_STORE=firestore y agrega
+              # FIRESTORE_PROJECT_ID=epa-turing,FIRESTORE_DATABASE_ID=${{ env.SERVICE_NAME }}
 
       - name: Mostrar URL del servicio
         run: |
@@ -525,6 +547,7 @@ AMBOS CONTENEDORES
 [ ] setup-acceso.sh corrió (interno o restringido): base de Firestore
     {servicio}, datastore.user acotado, primer admin, IAP activado
 [ ] El contenedor api tiene AUTH_MODE=iap, ACCESS_MODE igual al AGENTS.md,
+    ACCESS_STORE (none, o firestore con su base y su binding),
     IAP_AUDIENCE de ESTE servicio y AUTH_ALLOWED_DOMAINS — nunca
     AUTH_MODE=local
 [ ] Probé con una cuenta @epa.digital que NO está en AccessUsers:
@@ -603,8 +626,14 @@ Fix:    IAP_AUDIENCE = /projects/689827400521/locations/us-central1/services/{se
 ### El contenedor api no arranca: "config: AUTH_MODE=..."
 ```
 Causa:  Configuración de acceso inválida — la API falla cerrado a propósito
-        (sin IAP_AUDIENCE, o AUTH_MODE=local en Cloud Run)
-Fix:    Corregir las variables del contenedor api; nunca AUTH_MODE=local
+        (sin IAP_AUDIENCE; sin ACCESS_MODE o con un valor que no es
+        'interno' | 'restringido'; sin ACCESS_STORE o con un valor que no
+        es 'firestore' | 'none'; ACCESS_STORE=none con
+        ACCESS_MODE=restringido; ACCESS_MODE=interno con
+        AUTH_ALLOWED_DOMAINS distinto de epa.digital; o AUTH_MODE=local en
+        Cloud Run)
+Fix:    Corregir las variables del contenedor api (ACCESS_MODE igual al
+        AGENTS.md; ACCESS_STORE=none solo con interno); nunca AUTH_MODE=local
 ```
 
 ### Error: "Quota exceeded"
