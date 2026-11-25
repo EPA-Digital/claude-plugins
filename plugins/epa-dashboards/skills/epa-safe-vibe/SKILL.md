@@ -229,7 +229,7 @@ arquitectura** — ver `epa-backend`. Lo que sí sigue bloqueado:
 | Secretos en `.env` commiteado | Secret Manager + `--set-secrets` en el `--container` que corresponda |
 | Login propio: contraseña compartida, token de sesión fijo, NextAuth/Firebase Auth/Auth.js | IAP + lista `AccessUsers` — ver `epa-frontend/references/auth.md` (Coppel: auditoría bloqueada por esto) |
 | "Abrirlo" para que lo vea el cliente (`allUsers`, `--allow-unauthenticated`) | `Acceso: externo` escalado a datos@epa.digital — nunca un servicio público |
-| Dar acceso a una persona con IAM (`run.invoker`, `iap.httpsResourceAccessor` por correo) | En `interno` ya entra todo `@epa.digital` (el IAP de dominio está a nivel proyecto); para un admin o un bloqueo, `AccessUsers` desde `/admin/accesos`; en `restringido`, el alta ahí. Nunca IAM por persona |
+| Dar acceso a una persona con IAM (`run.invoker`, `iap.httpsResourceAccessor` por correo) | En `interno` ya entra todo `@epa.digital` (el IAP de dominio está a nivel proyecto); para un admin o un bloqueo, `AccessUsers` desde `/admin/accesos` (requiere `ACCESS_STORE=firestore`); en `restringido`, el alta ahí. Nunca IAM por persona |
 | "Cerrar" un dashboard dejando IAP con la política vacía | `Acceso: restringido` declarado en el `AGENTS.md`, con motivo y dueño |
 
 ### 🔴 B7 — Deploy de Cloud Run sobre un servicio existente (overwrite silencioso)

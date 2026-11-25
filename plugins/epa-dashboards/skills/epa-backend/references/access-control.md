@@ -22,6 +22,18 @@ request a `/api/v1/*`:
    fabrica un admin** (`RequireAdmin` exige un registro `admin` activo y se
    relee sin caché) y **si Firestore falla, nadie entra** (500, no se abre).
 
+   **`ACCESS_STORE`** (también obligatoria, sin default) dice dónde viven los
+   registros de `AccessUsers`:
+
+   | `ACCESS_STORE` | Qué es | Qué necesita |
+   |---|---|---|
+   | `none` (el recomendado para un dashboard `interno` nuevo) | No hay almacén: todo `@epa.digital` entra como `usuario` implícito. **No se puede nombrar admins ni bloquear a nadie** y no hay pantalla de accesos | **Nada**: ni base de Firestore ni permisos por dashboard |
+   | `firestore` | Los registros viven en la base `{servicio}` de Firestore | La base, un `datastore.user` acotado a ella y el primer admin (los crea `setup-acceso.sh`; **requieren permisos de IAM que un Editor no tiene**, así que se piden a Datos e IA) |
+
+   `none` solo se acepta con `interno`: en `restringido` la lista es la puerta y
+   necesita dónde vivir. Si un dashboard `interno` necesita admins o bloqueos,
+   pasa a `firestore`.
+
 Modelo: `EPA-Digital/kcm-informe-interno` (verifica en la API) y
 `EPA-Digital/chedraui-dashboard` (en producción, la parte de `AccessUsers`).
 Las diferencias con ellos son a propósito:
@@ -49,10 +61,11 @@ tests pasan tal cual (Go 1.24+).
 | `AUTH_MODE` | `iap` | `local` solo en desarrollo; **se niega a arrancar** si existe `K_SERVICE` (Cloud Run) |
 | `IAP_AUDIENCE` | `/projects/689827400521/locations/us-central1/services/{servicio}` | Lo imprime `setup-acceso.sh`. Sin él, el servidor no arranca |
 | `ACCESS_MODE` | `interno` \| `restringido` | **Obligatoria**, sin default: si falta o es otra cosa, el servidor no arranca. La imprime `setup-acceso.sh` según `--acceso` |
+| `ACCESS_STORE` | `firestore` \| `none` | **Obligatoria**, sin default: si falta o es otra cosa, el servidor no arranca. `none` solo con `ACCESS_MODE=interno`. La imprime `setup-acceso.sh` según `--store` |
 | `AUTH_ALLOWED_DOMAINS` | `epa.digital` (default si falta) | Con `ACCESS_MODE=interno` solo se acepta exactamente `epa.digital`. Externos (con Datos e IA): `epa.digital,cliente.com`, o `*` = no revisar dominio |
-| `FIRESTORE_PROJECT_ID` | `epa-turing` | |
-| `FIRESTORE_DATABASE_ID` | `{servicio}` | Base dedicada, nunca `(default)` |
-| `FIRESTORE_ACCESS_COLLECTION` | `AccessUsers` (default) | |
+| `FIRESTORE_PROJECT_ID` | `epa-turing` | Solo con `ACCESS_STORE=firestore` |
+| `FIRESTORE_DATABASE_ID` | `{servicio}` | Solo con `firestore`. Base dedicada, nunca `(default)` |
+| `FIRESTORE_ACCESS_COLLECTION` | `AccessUsers` (default) | Solo con `firestore` |
 | `ACCESS_CACHE_TTL` | `60s` (default) | Una baja tarda hasta esto en verse en otras instancias. El admin se relee siempre sin caché |
 
 ## Endpoints
@@ -61,7 +74,7 @@ tests pasan tal cual (Go 1.24+).
 |---|---|---|
 | `GET /api/v1/me` | `Identity` | Estado de quien pregunta: 200 con su registro (en `interno`, sin registro, el `usuario` implícito con `implicit: true`), 401 sin JWT válido, 403 sin alta en `restringido` o con `disabled` |
 | `/api/v1/*` (datos) | `Identity` + `RequireAccess` | `active` (o implícito en `interno`) |
-| `GET/POST /api/v1/admin/access-users`, `PATCH …/:email` | + `RequireAdmin` (sin caché) | Pantalla de accesos |
+| `GET/POST /api/v1/admin/access-users`, `PATCH …/:email` | + `RequireAdmin` (sin caché) | Pantalla de accesos. **Solo con `ACCESS_STORE=firestore`**; con `none` no se registran (404) |
 
 `/health` va fuera de `/api/v1` y sin guardias (el startup probe no trae JWT).
 
@@ -97,6 +110,14 @@ const (
 )
 
 func ValidAccessMode(m string) bool { return m == AccessInterno || m == AccessRestringido }
+
+// Almacén de AccessUsers (ACCESS_STORE). Se declara siempre; no hay default.
+const (
+	StoreFirestore = "firestore" // admins, bloqueos y, en `restringido`, la puerta
+	StoreNone      = "none"      // sin almacén: solo vale con `interno`
+)
+
+func ValidAccessStore(s string) bool { return s == StoreFirestore || s == StoreNone }
 
 // AccessUser es una persona dada de alta en ESTE dashboard. El ID del
 // documento en Firestore es NormalizeEmail(email).
@@ -156,6 +177,7 @@ var (
 	ErrAccessUserMissing = errors.New("la persona no existe")                        // → 404
 	ErrSelfChange        = errors.New("un admin no puede quitarse su propio acceso") // → 409
 	ErrInvalidInput      = errors.New("datos inválidos")                             // → 400
+	ErrNoStore           = errors.New("este dashboard no tiene almacén de acceso")   // → 501
 )
 
 // Verifier saca la identidad del request (JWT de IAP en producción).
@@ -502,6 +524,7 @@ import (
 	"time"
 
 	"{module}/internal/infrastructure/repositories/mockdata"
+	"{module}/internal/infrastructure/repositories/noaccess"
 	"{module}/internal/pkg/entity"
 	"{module}/internal/pkg/ports"
 )
@@ -556,6 +579,16 @@ func TestAccessModes(t *testing.T) {
 		u, err := s.Authorize(ctx, entity.Identity{Email: "jefa@epa.digital"})
 		if err != nil || u.Role != entity.RoleAdmin || u.Implicit {
 			t.Fatalf("esperaba el admin explícito, got %+v, %v", u, err)
+		}
+	})
+	t.Run("interno con ACCESS_STORE=none: todos entran como usuario implícito y nadie es admin", func(t *testing.T) {
+		s := NewService(noaccess.NewAccessUserRepository(), time.Minute, entity.AccessInterno)
+		u, err := s.Authorize(ctx, ana)
+		if err != nil || u.Role != entity.RoleUsuario || !u.Implicit {
+			t.Fatalf("esperaba usuario implícito, got %+v, %v", u, err)
+		}
+		if _, err := s.AdminFresh(ctx, ana); !errors.Is(err, ports.ErrForbidden) {
+			t.Fatalf("sin almacén nadie es admin: %v", err)
 		}
 	})
 	t.Run("restringido: sin registro es 403", func(t *testing.T) {
@@ -776,6 +809,8 @@ func abort(c *gin.Context, err error) {
 		status, code = http.StatusConflict, err.Error()
 	case errors.Is(err, ports.ErrAccessUserMissing):
 		status, code = http.StatusNotFound, "not found"
+	case errors.Is(err, ports.ErrNoStore):
+		status, code = http.StatusNotImplemented, "not implemented"
 	default:
 		// Fallar cerrado: si Firestore no contesta, nadie entra.
 		logrus.WithError(err).Error("access: no se pudo consultar la lista de acceso")
@@ -987,6 +1022,78 @@ func (r *AccessUserRepository) Update(_ context.Context, email string, p entity.
 }
 ```
 
+`internal/infrastructure/repositories/noaccess/access_user_repository.go`
+
+```go
+package noaccess
+
+import (
+	"context"
+
+	"{module}/internal/pkg/entity"
+	"{module}/internal/pkg/ports"
+)
+
+var _ ports.AccessUserRepository = AccessUserRepository{}
+
+// AccessUserRepository para ACCESS_STORE=none: no hay almacén. Nadie tiene
+// registro (Get devuelve nil, nil), así que en ACCESS_MODE=interno todo
+// @epa.digital entra como `usuario` implícito. No se pueden nombrar admins ni
+// bloquear: Create y Update devuelven ErrNoStore. config.LoadAuth ya impidió
+// combinarlo con `restringido`. No usa Firestore: no hay base ni permisos.
+type AccessUserRepository struct{}
+
+func NewAccessUserRepository() AccessUserRepository { return AccessUserRepository{} }
+
+func (AccessUserRepository) Get(context.Context, string) (*entity.AccessUser, error) {
+	return nil, nil
+}
+
+func (AccessUserRepository) List(context.Context) ([]*entity.AccessUser, error) {
+	return nil, nil
+}
+
+func (AccessUserRepository) Create(context.Context, entity.AccessUser) (*entity.AccessUser, error) {
+	return nil, ports.ErrNoStore
+}
+
+func (AccessUserRepository) Update(context.Context, string, entity.AccessUserPatch, string) (*entity.AccessUser, error) {
+	return nil, ports.ErrNoStore
+}
+```
+
+`internal/infrastructure/repositories/noaccess/access_user_repository_test.go`
+
+```go
+package noaccess
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"{module}/internal/pkg/entity"
+	"{module}/internal/pkg/ports"
+)
+
+func TestSinAlmacen(t *testing.T) {
+	ctx := context.Background()
+	r := NewAccessUserRepository()
+	if u, err := r.Get(ctx, "ana@epa.digital"); u != nil || err != nil {
+		t.Fatalf("Get debe devolver (nil, nil), got %v, %v", u, err)
+	}
+	if l, err := r.List(ctx); len(l) != 0 || err != nil {
+		t.Fatalf("List debe ir vacía, got %v, %v", l, err)
+	}
+	if _, err := r.Create(ctx, entity.AccessUser{Email: "ana@epa.digital"}); !errors.Is(err, ports.ErrNoStore) {
+		t.Fatalf("Create sin almacén: %v", err)
+	}
+	if _, err := r.Update(ctx, "ana@epa.digital", entity.AccessUserPatch{}, "x"); !errors.Is(err, ports.ErrNoStore) {
+		t.Fatalf("Update sin almacén: %v", err)
+	}
+}
+```
+
 ### Configuración y wiring
 
 `internal/pkg/config/auth.go`
@@ -1007,6 +1114,7 @@ import (
 type Auth struct {
 	Mode           string        // AUTH_MODE: "iap" (default) | "local"
 	AccessMode     string        // ACCESS_MODE: "interno" | "restringido" (OBLIGATORIA, sin default)
+	AccessStore    string        // ACCESS_STORE: "firestore" | "none" (OBLIGATORIA, sin default)
 	IAPAudience    string        // IAP_AUDIENCE: /projects/NÚM/locations/REGIÓN/services/SERVICIO
 	AllowedDomains []string      // AUTH_ALLOWED_DOMAINS: "epa.digital" (default)
 	Collection     string        // FIRESTORE_ACCESS_COLLECTION: "AccessUsers" (default)
@@ -1017,6 +1125,7 @@ func LoadAuth() (Auth, error) {
 	a := Auth{
 		Mode:        or(os.Getenv("AUTH_MODE"), "iap"),
 		AccessMode:  strings.ToLower(strings.TrimSpace(os.Getenv("ACCESS_MODE"))),
+		AccessStore: strings.ToLower(strings.TrimSpace(os.Getenv("ACCESS_STORE"))),
 		IAPAudience: strings.TrimSpace(os.Getenv("IAP_AUDIENCE")),
 		Collection:  or(os.Getenv("FIRESTORE_ACCESS_COLLECTION"), "AccessUsers"),
 		CacheTTL:    time.Minute,
@@ -1059,6 +1168,14 @@ func (a Auth) validate() error {
 	if a.AccessMode == entity.AccessInterno && !(len(a.AllowedDomains) == 1 && a.AllowedDomains[0] == "epa.digital") {
 		return errors.New("config: ACCESS_MODE=interno exige AUTH_ALLOWED_DOMAINS=epa.digital (acceso externo se escala a datos@epa.digital)")
 	}
+	// El almacén también se DECLARA. `none` (sin Firestore) solo vale con
+	// `interno`: en `restringido` la lista es la puerta y necesita dónde vivir.
+	if !entity.ValidAccessStore(a.AccessStore) {
+		return errors.New("config: ACCESS_STORE es obligatoria: 'firestore' o 'none'")
+	}
+	if a.AccessStore == entity.StoreNone && a.AccessMode != entity.AccessInterno {
+		return errors.New("config: ACCESS_STORE=none solo vale con ACCESS_MODE=interno (en restringido la lista es la puerta)")
+	}
 	switch a.Mode {
 	case "iap":
 		if a.IAPAudience == "" {
@@ -1099,19 +1216,23 @@ func TestLoadAuth(t *testing.T) {
 		env     map[string]string
 		wantErr bool
 	}{
-		{"interno estándar", map[string]string{"ACCESS_MODE": "interno"}, false},
-		{"restringido estándar", map[string]string{"ACCESS_MODE": "restringido"}, false},
-		{"sin ACCESS_MODE no arranca", map[string]string{}, true},
-		{"ACCESS_MODE desconocido no arranca", map[string]string{"ACCESS_MODE": "abierto"}, true},
-		{"interno con dominio de cliente no arranca", map[string]string{"ACCESS_MODE": "interno", "AUTH_ALLOWED_DOMAINS": "epa.digital,cliente.com"}, true},
-		{"interno con * no arranca", map[string]string{"ACCESS_MODE": "interno", "AUTH_ALLOWED_DOMAINS": "*"}, true},
-		{"restringido con dominios de cliente (con Datos e IA)", map[string]string{"ACCESS_MODE": "restringido", "AUTH_ALLOWED_DOMAINS": "epa.digital,cliente.com"}, false},
+		{"interno con almacén", map[string]string{"ACCESS_MODE": "interno", "ACCESS_STORE": "firestore"}, false},
+		{"interno sin almacén (el default recomendado)", map[string]string{"ACCESS_MODE": "interno", "ACCESS_STORE": "none"}, false},
+		{"restringido con almacén", map[string]string{"ACCESS_MODE": "restringido", "ACCESS_STORE": "firestore"}, false},
+		{"restringido SIN almacén no arranca", map[string]string{"ACCESS_MODE": "restringido", "ACCESS_STORE": "none"}, true},
+		{"sin ACCESS_STORE no arranca", map[string]string{"ACCESS_MODE": "interno"}, true},
+		{"ACCESS_STORE desconocido no arranca", map[string]string{"ACCESS_MODE": "interno", "ACCESS_STORE": "memoria"}, true},
+		{"sin ACCESS_MODE no arranca", map[string]string{"ACCESS_STORE": "none"}, true},
+		{"ACCESS_MODE desconocido no arranca", map[string]string{"ACCESS_MODE": "abierto", "ACCESS_STORE": "none"}, true},
+		{"interno con dominio de cliente no arranca", map[string]string{"ACCESS_MODE": "interno", "ACCESS_STORE": "none", "AUTH_ALLOWED_DOMAINS": "epa.digital,cliente.com"}, true},
+		{"interno con * no arranca", map[string]string{"ACCESS_MODE": "interno", "ACCESS_STORE": "none", "AUTH_ALLOWED_DOMAINS": "*"}, true},
+		{"restringido con dominios de cliente (con Datos e IA)", map[string]string{"ACCESS_MODE": "restringido", "ACCESS_STORE": "firestore", "AUTH_ALLOWED_DOMAINS": "epa.digital,cliente.com"}, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// t.Setenv registra la restauración al terminar; Unsetenv deja la
 			// variable AUSENTE (vacía no es lo mismo: LoadAuth la rechaza).
-			for _, k := range []string{"ACCESS_MODE", "AUTH_ALLOWED_DOMAINS", "ACCESS_CACHE_TTL", "K_SERVICE"} {
+			for _, k := range []string{"ACCESS_MODE", "ACCESS_STORE", "AUTH_ALLOWED_DOMAINS", "ACCESS_CACHE_TTL", "K_SERVICE"} {
 				t.Setenv(k, "")
 				os.Unsetenv(k)
 			}
@@ -1129,9 +1250,12 @@ func TestLoadAuth(t *testing.T) {
 ```
 
 En `internal/infrastructure/api/routes.go`, el **único** punto de wiring. El
-repositorio sale de `DATA_SOURCE` como cualquier otro recurso (`mockdata` o
-`firestore`, con el cliente de Firestore creado perezosamente). Llamar a
-`config.LoadAuth()` en `main` y **terminar el proceso si devuelve error**:
+repositorio sale de `ACCESS_STORE`: con `none`, `noaccess.NewAccessUserRepository()`
+(sin Firestore: no se crea ningún cliente ni se necesitan permisos); con
+`firestore`, de `DATA_SOURCE` como cualquier otro recurso (`mockdata` o
+`firestore`, con el cliente de Firestore creado perezosamente). Con `none` **no
+se registran** las rutas de admin. Llamar a `config.LoadAuth()` en `main` y
+**terminar el proceso si devuelve error**:
 
 `internal/infrastructure/api/routes.go (fragmento)`
 
@@ -1142,6 +1266,7 @@ import (
 	accessAPI "{module}/internal/infrastructure/api/access"
 	"{module}/internal/infrastructure/api/auth"
 	"{module}/internal/pkg/config"
+	"{module}/internal/pkg/entity"
 	"{module}/internal/pkg/ports"
 	accessSvc "{module}/internal/pkg/service/access"
 	"github.com/gin-gonic/gin"
@@ -1167,11 +1292,14 @@ func registerAccess(r *gin.Engine, cfg config.Auth, repo ports.AccessUserReposit
 
 	// Admin ANTES de la caché de respuestas: la caché devuelve un cuerpo
 	// guardado sin pasar por los middlewares, y le entregaría la lista de
-	// personas a cualquiera con acceso.
-	admin := v1.Group("/admin/access-users", accessAPI.RequireAdmin(svc))
-	admin.GET("", accessAPI.List(svc))
-	admin.POST("", accessAPI.Create(svc))
-	admin.PATCH("/:email", accessAPI.Update(svc))
+	// personas a cualquiera con acceso. Sin almacén (ACCESS_STORE=none) no hay
+	// a quién administrar: las rutas ni se registran (404).
+	if cfg.AccessStore == entity.StoreFirestore {
+		admin := v1.Group("/admin/access-users", accessAPI.RequireAdmin(svc))
+		admin.GET("", accessAPI.List(svc))
+		admin.POST("", accessAPI.Create(svc))
+		admin.PATCH("/:email", accessAPI.Update(svc))
+	}
 
 	if responseCache != nil {
 		v1.Use(responseCache)
@@ -1183,6 +1311,10 @@ func registerAccess(r *gin.Engine, cfg config.Auth, repo ports.AccessUserReposit
 ---
 
 ## Primer admin y altas
+
+> Esta sección aplica **solo con `ACCESS_STORE=firestore`**. Con `none` no hay
+> admins, altas ni bajas: todo `@epa.digital` entra con lectura y no hay nada
+> que administrar.
 
 - **Primer admin:** lo crea `epa-deploy/scripts/setup-acceso.sh --admin
   correo@epa.digital` (documento `AccessUsers/{correo}` con `role: admin`,

@@ -170,9 +170,10 @@ y del plugin `epa-dashboards`.
   por accidente.
 - Acceso: {interno|restringido|externo} — IAP + `ACCESS_MODE` en `apps/api`
   (`interno`: todo @epa.digital con lectura; `restringido`: solo quien esté
-  en `AccessUsers`, con motivo y dueño aquí). Base de Firestore `{servicio}`
-  en epa-turing. Admin inicial: {correo}. Ver `references/auth.md`. No
-  improvisar login propio, Firebase/NextAuth ni contraseñas compartidas.
+  en `AccessUsers`, con motivo y dueño aquí). `ACCESS_STORE`: {none|firestore}
+  (`none` = sin base ni admins; `firestore` = base `{servicio}` en epa-turing,
+  admin inicial {correo}). Ver `references/auth.md`. No improvisar login
+  propio, Firebase/NextAuth ni contraseñas compartidas.
 - Si el proyecto parece necesitar un ETL, un job programado o un segundo
   servicio de Cloud Run, escalar a datos@epa.digital — no construirlo aquí.
 

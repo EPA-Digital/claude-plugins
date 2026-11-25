@@ -57,11 +57,15 @@ si no se confirmó.
    - Custom (pedir que lo describa)
 4. **Plataformas de datos involucradas** (Google Ads, Meta, GA4, TikTok,
    Bing, DV360 — las que apliquen).
-5. **Admin inicial y roles:** el correo `@epa.digital` de quien administra
-   los accesos (lo crea `setup-acceso.sh`). Los roles son dos, `admin` (da
-   altas y bajas) y `usuario` (solo ve; en `interno` es el que recibe por
-   defecto todo `@epa.digital`); si piden más, o que cada quien vea solo
-   ciertas cuentas, anótalo como riesgo: son filtros por fila en `apps/api`.
+5. **¿Hacen falta admins o poder bloquear a alguien?** Por defecto **no**:
+   el dashboard `interno` queda con `ACCESS_STORE=none`, sin Firestore y sin
+   pedir nada a nadie. Si dicen que sí (o si es `restringido`), hace falta
+   `ACCESS_STORE=firestore` y un admin inicial: el correo `@epa.digital` de
+   quien administra los accesos (lo crea `setup-acceso.sh`; requiere permisos de
+   IAM, que se piden a Datos e IA). Los roles son dos, `admin` (da altas y
+   bajas) y `usuario` (solo ve; en `interno` es el que recibe por defecto todo
+   `@epa.digital`); si piden más, o que cada quien vea solo ciertas cuentas,
+   anótalo como riesgo: son filtros por fila en `apps/api`.
 
 Espera las respuestas completas antes de seguir.
 
@@ -108,7 +112,8 @@ Estructura:
 ## Usuarios y acceso
 - Acceso: interno | restringido | externo
 - (si restringido) Motivo: {por qué} · Dueño: {correo}@epa.digital
-- Admin inicial: {correo}@epa.digital
+- Almacén de acceso: none | firestore  (none = sin admins ni bloqueos, nada que pedir)
+- (si firestore) Admin inicial: {correo}@epa.digital
 - Roles: admin (altas y bajas) · usuario (solo ve; en interno, todo EPA)
 - Filtros por fila: (ninguno | qué cuentas ve quién — se aplican en apps/api)
 
@@ -124,9 +129,9 @@ proyecto":
 
 ```
 - Acceso: interno — IAP (solo @epa.digital); todo EPA entra con lectura
-  (ACCESS_MODE=interno). La lista AccessUsers, en la base de Firestore
-  {servicio} de epa-turing, solo nombra admins y bloquea personas.
-  Admin inicial: {correo}. Ver epa-frontend/references/auth.md.
+  (ACCESS_MODE=interno, ACCESS_STORE=none | firestore). Con firestore, la lista
+  AccessUsers, en la base {servicio} de epa-turing, nombra admins y bloquea
+  personas (admin inicial: {correo}). Ver epa-frontend/references/auth.md.
 ```
 
 (o, excepción deliberada:

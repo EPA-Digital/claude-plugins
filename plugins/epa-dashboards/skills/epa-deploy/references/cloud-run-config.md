@@ -68,19 +68,11 @@ gcloud run deploy {servicio} --no-allow-unauthenticated --iap ...
 ```
 
 Todo lo demás lo hace `epa-deploy/scripts/setup-acceso.sh --acceso interno`
-(idempotente, `--dry-run` para ver los comandos). Lo que corre, para referencia:
+(idempotente, `--dry-run` para ver los comandos). **Sin `--store`, el almacén es
+`none`: el script solo activa IAP y no pide nada a nadie** (un Editor lo corre
+solo). Lo que corre, para referencia:
 
 ```bash
-# Base de Firestore propia del dashboard (guarda AccessUsers)
-gcloud firestore databases create --database={servicio} \
-  --location=us-central1 --type=firestore-native --project=epa-turing
-
-# La SA de runtime puede leer y escribir SOLO esa base
-gcloud projects add-iam-policy-binding epa-turing \
-  --member="serviceAccount:{cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com" \
-  --role="roles/datastore.user" \
-  --condition='expression=resource.name == "projects/epa-turing/databases/{servicio}",title=solo-{servicio}'
-
 # IAP
 gcloud beta services identity create --service=iap.googleapis.com --project=epa-turing
 gcloud run services update {servicio} --region=us-central1 --project=epa-turing --iap
@@ -93,6 +85,23 @@ gcloud run services add-iam-policy-binding {servicio} --region=us-central1 --pro
 gcloud iap web add-iam-policy-binding --resource-type=cloud-run \
   --service={servicio} --region=us-central1 --project=epa-turing \
   --member="domain:epa.digital" --role="roles/iap.httpsResourceAccessor"
+```
+
+**Solo con `--store firestore`** (admins y bloqueos; `restringido` siempre lo
+usa). Requiere permisos de IAM que un Editor no tiene (`datastore.databases.create`
+y `setIamPolicy`): se piden a Datos e IA. Darle `datastore.owner` a todos **no**
+es opción: permitiría editar el `AccessUsers` de otros dashboards.
+
+```bash
+# Base de Firestore propia del dashboard (guarda AccessUsers)
+gcloud firestore databases create --database={servicio} \
+  --location=us-central1 --type=firestore-native --project=epa-turing
+
+# La SA de runtime puede leer y escribir SOLO esa base
+gcloud projects add-iam-policy-binding epa-turing \
+  --member="serviceAccount:{cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com" \
+  --role="roles/datastore.user" \
+  --condition='expression=resource.name == "projects/epa-turing/databases/{servicio}",title=solo-{servicio}'
 
 # + el primer admin: documento AccessUsers/{correo} con role=admin, status=active
 ```
@@ -101,6 +110,8 @@ gcloud iap web add-iam-policy-binding --resource-type=cloud-run \
 `/projects/689827400521/locations/us-central1/services/{servicio}`.
 `ACCESS_MODE` del contenedor `api` = `interno` (obligatoria; sin ella no
 arranca, y `interno` solo arranca con `AUTH_ALLOWED_DOMAINS=epa.digital`).
+`ACCESS_STORE` = `none` por defecto en `interno` (obligatoria también; `none` solo
+vale con `interno`).
 
 **Quién entra NO se maneja con IAM.** IAP deja pasar a todo `@epa.digital` y en
 `interno` la API da lectura a todos; la lista de `AccessUsers` solo da admins y
@@ -116,8 +127,9 @@ de personas). Hay que **declararlo** en el `AGENTS.md`:
 - Acceso: restringido — motivo: {por qué}. Dueño: {correo}@epa.digital.
 ```
 
-Se monta igual que interno, con `setup-acceso.sh --acceso restringido`, que
-imprime `ACCESS_MODE=restringido`. Ahí `AccessUsers` es la puerta: sin registro
+Se monta con `setup-acceso.sh --acceso restringido --admin … --runtime-sa …`, que
+usa `--store firestore` (necesita permisos de IAM: se piden a Datos e IA) e
+imprime `ACCESS_MODE=restringido` y `ACCESS_STORE=firestore`. Ahí `AccessUsers` es la puerta: sin registro
 `active`, la API responde 403. **Nunca** se "cierra" dejando IAP activado con la
 política vacía: eso no es restringir, es dejar un dashboard roto sin dueño.
 
@@ -126,8 +138,8 @@ política vacía: eso no es restringir, es dejar un dashboard roto sin dueño.
 Escalar a `datos@epa.digital` **antes** de exponer el dashboard. Requiere IAP
 con external identities + Identity Platform y una página de login propia
 (precedente: `chedraui-dashboard`, `apps/login` y `docs/auth-iap.md`). La API
-corre con `ACCESS_MODE=restringido` (la lista es la puerta); `interno` no
-arranca con dominios de clientes.
+corre con `ACCESS_MODE=restringido` y `ACCESS_STORE=firestore` (la lista es la
+puerta); `interno` no arranca con dominios de clientes.
 
 ### Nunca
 
