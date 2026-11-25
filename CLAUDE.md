@@ -232,8 +232,10 @@ O dejar que `extraKnownMarketplaces`/`enabledPlugins` en
    internos): IAP deja pasar solo `@epa.digital` y `apps/api` verifica el JWT
    de IAP. **Nada interno está cerrado a menos que se declare:** `interno`
    (el estándar) da lectura a todo `@epa.digital` y la lista `AccessUsers`
-   solo nombra admins y bloquea personas; `restringido` (excepción, con
-   motivo y dueño en el `AGENTS.md`) usa la lista como puerta de entrada.
+   solo nombra admins y bloquea personas (y con `ACCESS_STORE=none`, el
+   default de `interno`, ni siquiera hace falta Firestore ni pedir nada);
+   `restringido` (excepción, con motivo y dueño en el `AGENTS.md`) usa la lista
+   como puerta de entrada.
    `Acceso: interno|restringido|externo` se decide en `/plan-dashboard` y
    queda en el `AGENTS.md`; externo se escala a Datos e IA. Nunca contraseña
    compartida, servicio público ni IAP activado con la política vacía. Ver

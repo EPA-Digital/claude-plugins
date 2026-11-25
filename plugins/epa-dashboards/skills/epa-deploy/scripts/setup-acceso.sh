@@ -1,28 +1,36 @@
 #!/usr/bin/env bash
 # setup-acceso.sh — deja listo el acceso de un dashboard EPA INTERNO:
-#   IAP (solo @epa.digital) + base de Firestore propia + primer admin.
+#   IAP (solo @epa.digital) y, solo si hace falta, una base de Firestore propia
+#   con el primer admin.
 #
 # Patrón completo: epa-frontend/references/auth.md y
 # epa-backend/references/access-control.md. Dashboards con gente del cliente
 # (Acceso: externo) NO usan este script: se escalan a datos@epa.digital.
 #
-# Uso:
-#   bash setup-acceso.sh --service {cliente}-dashboard-vibe \
-#     --runtime-sa {cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com \
-#     --admin persona@epa.digital --acceso interno|restringido [--dry-run]
+# Uso (el caso normal, un dashboard interno nuevo: SIN pedir nada a nadie):
+#   bash setup-acceso.sh --service {cliente}-dashboard-vibe --acceso interno
+#
+# Con admins o bloqueos (ACCESS_STORE=firestore: necesita permisos de IAM que
+# un Editor NO tiene; se piden a Datos e IA):
+#   bash setup-acceso.sh --service {cliente}-dashboard-vibe --acceso interno \
+#     --store firestore --admin persona@epa.digital \
+#     --runtime-sa {cliente}-dashboard-runtime@epa-turing.iam.gserviceaccount.com
 #
 # --acceso es OBLIGATORIO y debe coincidir con `Acceso:` del AGENTS.md.
 #   interno      = todo @epa.digital entra con lectura (el estándar).
 #   restringido  = solo quien tenga registro en AccessUsers (excepción
 #                  deliberada, con motivo y dueño en el AGENTS.md).
+# --store (opcional) = ACCESS_STORE de la API. Por defecto: none con interno,
+#   firestore con restringido. none NO crea base, permiso ni admin (no hay
+#   admins ni bloqueos); restringido exige firestore. [--dry-run] solo imprime.
 #
 # Es idempotente: se puede correr las veces que haga falta. Orden recomendado:
-#   1. Correrlo ANTES del primer deploy: crea la base, los permisos y el admin.
-#      Los pasos de IAP se saltan si el servicio todavía no existe.
+#   1. Correrlo ANTES del primer deploy (con firestore crea la base, los
+#      permisos y el admin; los pasos de IAP se saltan si el servicio no existe).
 #   2. Primer deploy (con --iap, ver epa-deploy/SKILL.md).
 #   3. Correrlo OTRA VEZ: activa IAP. Los bindings de IAP por servicio solo se
 #      crean si NO existen ya a nivel proyecto (en epa-turing ya existen).
-# Así IAP nunca se enciende sobre una revisión que no exige la política.
+# Así IAP nunca se enciende sobre una revisión que no aplica la política.
 
 set -euo pipefail
 
@@ -36,9 +44,10 @@ SERVICE=""
 RUNTIME_SA=""
 ADMIN=""
 ACCESO=""
+STORE=""
 DRY_RUN=0
 
-usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+usage() { sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 die() { echo "🔴 $*" >&2; exit 1; }
 info() { echo "▶ $*"; }
 
@@ -48,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     --runtime-sa) RUNTIME_SA="${2:-}"; shift 2 ;;
     --admin) ADMIN="${2:-}"; shift 2 ;;
     --acceso) ACCESO="${2:-}"; shift 2 ;;
+    --store) STORE="${2:-}"; shift 2 ;;
     --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage 0 ;;
     *) die "Opción desconocida: $1 (usa --help)" ;;
@@ -55,16 +65,32 @@ while [[ $# -gt 0 ]]; do
 done
 
 # --- Validaciones: fallar antes de tocar nada ---------------------------------
-[[ -n "$SERVICE" && -n "$RUNTIME_SA" && -n "$ADMIN" && -n "$ACCESO" ]] || usage 1
+[[ -n "$SERVICE" && -n "$ACCESO" ]] || usage 1
 [[ "$ACCESO" == "interno" || "$ACCESO" == "restringido" ]] \
   || die "--acceso tiene que ser 'interno' o 'restringido' (externo se escala a datos@epa.digital)."
 [[ "$SERVICE" =~ ^[a-z][a-z0-9-]{2,61}-vibe$ ]] \
   || die "El servicio '$SERVICE' tiene que ser kebab-case y terminar en -vibe (regla de naming EPA)."
-[[ "$RUNTIME_SA" == *"@${PROJECT}.iam.gserviceaccount.com" ]] \
-  || die "La SA de runtime tiene que ser de ${PROJECT} (…@${PROJECT}.iam.gserviceaccount.com)."
-ADMIN="$(echo "$ADMIN" | tr '[:upper:]' '[:lower:]' | xargs)"
-[[ "$ADMIN" =~ ^[^@[:space:]]+@${DOMAIN//./\\.}$ ]] \
-  || die "El primer admin tiene que ser una cuenta @${DOMAIN}."
+
+# El almacén: por defecto none con interno (nada que pedir) y firestore con restringido.
+if [[ -z "$STORE" ]]; then
+  if [[ "$ACCESO" == "interno" ]]; then STORE="none"; else STORE="firestore"; fi
+fi
+[[ "$STORE" == "none" || "$STORE" == "firestore" ]] \
+  || die "--store tiene que ser 'none' o 'firestore'."
+[[ "$ACCESO" == "interno" || "$STORE" == "firestore" ]] \
+  || die "--acceso restringido exige --store firestore: la lista es la puerta y necesita dónde vivir."
+
+if [[ "$STORE" == "firestore" ]]; then
+  [[ -n "$RUNTIME_SA" && -n "$ADMIN" ]] \
+    || die "Con --store firestore hacen falta --runtime-sa y --admin (el primer admin)."
+  [[ "$RUNTIME_SA" == *"@${PROJECT}.iam.gserviceaccount.com" ]] \
+    || die "La SA de runtime tiene que ser de ${PROJECT} (…@${PROJECT}.iam.gserviceaccount.com)."
+  ADMIN="$(echo "$ADMIN" | tr '[:upper:]' '[:lower:]' | xargs)"
+  [[ "$ADMIN" =~ ^[^@[:space:]]+@${DOMAIN//./\\.}$ ]] \
+    || die "El primer admin tiene que ser una cuenta @${DOMAIN}."
+elif [[ -n "$RUNTIME_SA" || -n "$ADMIN" ]]; then
+  echo "ℹ️  --runtime-sa y --admin se ignoran con --store none (no hay base ni admin)."
+fi
 
 DATABASE="$SERVICE" # una base de Firestore por dashboard, con el nombre del servicio
 IAP_AGENT="service-${PROJECT_NUMBER}@gcp-sa-iap.iam.gserviceaccount.com"
@@ -77,7 +103,7 @@ run() {
 
 # Evita depender del proyecto activo de gcloud: todo lleva --project explícito.
 command -v gcloud >/dev/null || die "Falta gcloud."
-command -v curl >/dev/null || die "Falta curl."
+if [[ "$STORE" == "firestore" ]]; then command -v curl >/dev/null || die "Falta curl."; fi
 
 # ¿Ya existe este binding a nivel PROYECTO? Solo lectura (Editor puede leer la
 # política). Si no se puede leer o no está, devuelve falso y el script cae al
@@ -89,33 +115,39 @@ project_has() { # $1 = miembro (p. ej. domain:epa.digital), $2 = rol
 }
 
 # --- 1. APIs ------------------------------------------------------------------
-info "1/6 Habilitando APIs (run, firestore, iap)"
-run gcloud services enable run.googleapis.com firestore.googleapis.com iap.googleapis.com \
-  --project="$PROJECT"
-
-# --- 2. Base de Firestore propia ----------------------------------------------
-info "2/6 Base de Firestore '${DATABASE}'"
-if [[ $DRY_RUN -eq 0 ]] && gcloud firestore databases describe --database="$DATABASE" \
-  --project="$PROJECT" >/dev/null 2>&1; then
-  echo "  ya existe — se deja como está"
+if [[ "$STORE" == "firestore" ]]; then
+  info "1/6 Habilitando APIs (run, firestore, iap)"
+  run gcloud services enable run.googleapis.com firestore.googleapis.com iap.googleapis.com \
+    --project="$PROJECT"
 else
-  run gcloud firestore databases create --database="$DATABASE" --location="$REGION" \
-    --type=firestore-native --project="$PROJECT"
+  info "1/6 Habilitando APIs (run, iap)"
+  run gcloud services enable run.googleapis.com iap.googleapis.com --project="$PROJECT"
 fi
 
-# --- 3. Permiso de la SA de runtime, acotado a ESA base ------------------------
-info "3/6 roles/datastore.user para ${RUNTIME_SA}, solo sobre la base ${DATABASE}"
-run gcloud projects add-iam-policy-binding "$PROJECT" \
-  --member="serviceAccount:${RUNTIME_SA}" \
-  --role="roles/datastore.user" \
-  --condition="expression=resource.name == \"projects/${PROJECT}/databases/${DATABASE}\",title=solo-${DATABASE}" \
-  --format=none --quiet
+if [[ "$STORE" == "firestore" ]]; then
+  # --- 2. Base de Firestore propia --------------------------------------------
+  info "2/6 Base de Firestore '${DATABASE}'"
+  if [[ $DRY_RUN -eq 0 ]] && gcloud firestore databases describe --database="$DATABASE" \
+    --project="$PROJECT" >/dev/null 2>&1; then
+    echo "  ya existe — se deja como está"
+  else
+    run gcloud firestore databases create --database="$DATABASE" --location="$REGION" \
+      --type=firestore-native --project="$PROJECT"
+  fi
 
-# --- 4. Primer admin (solo si no existe: nunca pisa un registro) ---------------
-info "4/6 Primer admin: ${ADMIN}"
-URL="https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/${COLLECTION}?documentId=${ADMIN}"
-NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-BODY=$(cat <<JSON
+  # --- 3. Permiso de la SA de runtime, acotado a ESA base ----------------------
+  info "3/6 roles/datastore.user para ${RUNTIME_SA}, solo sobre la base ${DATABASE}"
+  run gcloud projects add-iam-policy-binding "$PROJECT" \
+    --member="serviceAccount:${RUNTIME_SA}" \
+    --role="roles/datastore.user" \
+    --condition="expression=resource.name == \"projects/${PROJECT}/databases/${DATABASE}\",title=solo-${DATABASE}" \
+    --format=none --quiet
+
+  # --- 4. Primer admin (solo si no existe: nunca pisa un registro) -------------
+  info "4/6 Primer admin: ${ADMIN}"
+  URL="https://firestore.googleapis.com/v1/projects/${PROJECT}/databases/${DATABASE}/documents/${COLLECTION}?documentId=${ADMIN}"
+  NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  BODY=$(cat <<JSON
 {"fields":{
   "role":{"stringValue":"admin"},
   "status":{"stringValue":"active"},
@@ -124,18 +156,21 @@ BODY=$(cat <<JSON
 }}
 JSON
 )
-if [[ $DRY_RUN -eq 1 ]]; then
-  echo "  \$ curl -X POST '${URL}' (crea ${COLLECTION}/${ADMIN} con role=admin, status=active)"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    echo "  \$ curl -X POST '${URL}' (crea ${COLLECTION}/${ADMIN} con role=admin, status=active)"
+  else
+    TOKEN="$(gcloud auth print-access-token)"
+    CODE=$(curl -sS -o /tmp/setup-acceso.$$ -w '%{http_code}' -X POST "$URL" \
+      -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d "$BODY")
+    case "$CODE" in
+      200) echo "  creado" ;;
+      409) echo "  ya existía — no se modificó" ;;
+      *) cat /tmp/setup-acceso.$$ >&2; rm -f /tmp/setup-acceso.$$; die "Firestore respondió ${CODE}." ;;
+    esac
+    rm -f /tmp/setup-acceso.$$
+  fi
 else
-  TOKEN="$(gcloud auth print-access-token)"
-  CODE=$(curl -sS -o /tmp/setup-acceso.$$ -w '%{http_code}' -X POST "$URL" \
-    -H "Authorization: Bearer ${TOKEN}" -H "Content-Type: application/json" -d "$BODY")
-  case "$CODE" in
-    200) echo "  creado" ;;
-    409) echo "  ya existía — no se modificó" ;;
-    *) cat /tmp/setup-acceso.$$ >&2; rm -f /tmp/setup-acceso.$$; die "Firestore respondió ${CODE}." ;;
-  esac
-  rm -f /tmp/setup-acceso.$$
+  info "2-4/6 Sin almacén (ACCESS_STORE=none): no se crea base de Firestore, ni permiso, ni admin"
 fi
 
 # --- 5 y 6. IAP (solo si el servicio ya existe) --------------------------------
@@ -168,23 +203,36 @@ cat <<EOF
 ✅ Listo. Variables del contenedor api (deploy/api.env.yaml o el workflow):
    AUTH_MODE=iap
    ACCESS_MODE=${ACCESO}
+   ACCESS_STORE=${STORE}
    IAP_AUDIENCE=${AUDIENCE}
    AUTH_ALLOWED_DOMAINS=${DOMAIN}
+EOF
+if [[ "$STORE" == "firestore" ]]; then
+  cat <<EOF
    FIRESTORE_PROJECT_ID=${PROJECT}
    FIRESTORE_DATABASE_ID=${DATABASE}
+EOF
+fi
+cat <<EOF
 
 Recordatorio: el servicio NUNCA lleva allUsers ni --allow-unauthenticated.
 EOF
 
-if [[ "$ACCESO" == "interno" ]]; then
-  cat <<EOF
-Acceso: interno — todo @${DOMAIN} entra con lectura. ${COLLECTION} solo sirve para
-nombrar admins y bloquear a alguien (status=disabled), desde /admin/accesos.
-EOF
-else
+if [[ "$ACCESO" == "restringido" ]]; then
   cat <<EOF
 ⚠️  Acceso: restringido — ${COLLECTION} es la puerta: sin registro active, 403.
    Antes de exponerlo, deja en el AGENTS.md:
      - Acceso: restringido — motivo: {por qué}. Dueño: {correo}@${DOMAIN}.
+EOF
+elif [[ "$STORE" == "firestore" ]]; then
+  cat <<EOF
+Acceso: interno con almacén — todo @${DOMAIN} entra con lectura. ${COLLECTION} sirve
+para nombrar admins y bloquear a alguien (status=disabled), desde /admin/accesos.
+EOF
+else
+  cat <<EOF
+Acceso: interno sin almacén — todo @${DOMAIN} entra con lectura. No hay admins ni
+bloqueos ni pantalla de accesos. Si los necesitas: --store firestore (requiere permisos
+de IAM que un Editor no tiene: pídeselos a Datos e IA).
 EOF
 fi
